@@ -6,7 +6,6 @@
 #include <string>
 #include <iostream>
 #include <vector>
-#include "LocationConfig.hpp"
 #include <fstream>
 #include <sstream>
 #include <algorithm>
