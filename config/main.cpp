@@ -1,5 +1,4 @@
 #include "Parser.hpp"
-#include "ServerConfig.hpp"
 #include "Server.hpp"
 #include <iostream>
 #include <fstream>

@@ -1,13 +1,9 @@
 #ifndef PARSER_HPP
 #define PARSER_HPP  
 
+#include "webserv.hpp"
 #include <vector>
-#include "ServerConfig.hpp"
-#include "LocationConfig.hpp"
-#include <iostream>
-#include <fstream>
-#include <sstream>
-
+#include <algorithm>
 class Parser {
     public:
         Parser();
@@ -17,6 +13,9 @@ class Parser {
         static std::string read_File(const std::string& path);
         static void remouve_comments(std::string& content);
         static ServerConfig parse_server_block(const std::string& content, size_t& pos);
+        static std::string extarct_block(const std::string& content, size_t& pos);
+        static LocationConfig parse_location_block(const std::string& content, size_t& pos, std::string& path);
+
 };
 
 #endif

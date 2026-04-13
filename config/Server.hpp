@@ -1,11 +1,8 @@
 #ifndef SERVER_HPP
 #define SERVER_HPP
 
-#include <string>
-#include <vector>
-#include "ServerConfig.hpp"
+#include "webserv.hpp"
 #include "Parser.hpp"
-#include <iostream>
 
 class Server {
     private:
