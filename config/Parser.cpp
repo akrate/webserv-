@@ -15,6 +15,8 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
         return configs;
     }
     remouve_comments(content);
+    validate_brackets(content);
+    validate_semicolons(content);
     size_t pos = 0;
     while(pos < content.size())
     {
@@ -27,7 +29,60 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
     }
     return configs;
 }
+void Parser::validate_semicolons(const std::string& content)
+{
+    std::istringstream s(content);
+    std::string line;
+    int line_num = 0;
 
+    while (std::getline(s, line))
+    {
+        line_num++;
+        std::string trimmed = Utils::trim(line);
+
+        if (trimmed.empty()) 
+            continue;
+        if (trimmed[0] == '}') 
+            continue;
+        if (trimmed[trimmed.size()-1] == '{')
+            continue;
+        if (trimmed[trimmed.size()-1] == '}')
+            continue;
+        if (trimmed[trimmed.size()-1] != ';')
+        {
+            std::cerr << "Error: missing ';' at line " 
+                      << line_num << ": \"" << trimmed << "\"" << std::endl;
+            exit(1);
+        }
+    }
+}
+void Parser::validate_brackets(const std::string& content)
+{
+    int count = 0;
+    int line = 1;
+    for(size_t i = 0; i < content.length(); i++)
+    {
+        if(content[i] == '\n')
+            line++;
+        else if(content[i] == '{')
+            count++;
+        else if(content[i] == '}')
+        {
+            count--;
+            if(count < 0)
+            {
+                std::cerr << "Error: unexpected '}' at line " << line << std::endl;
+                exit(1);
+            }
+        }
+        
+    }
+    if(count != 0)
+    {
+        std::cerr << "Error: unclosed '{' in config file" << "\n";
+        exit(1);
+    }
+}
 std::string Parser::read_File(const std::string& path)
 {
     std::ifstream file(path.c_str());
@@ -66,6 +121,12 @@ size_t parse_size(const std::string& value)
             m = 1024;
         else if(unit == 'G' || unit == 'g')
             m = 1024 * 1024 *1024;
+        
+        // if(size >  / m)
+        // {
+        //     std::cerr << "Error: client_max_body_size overflow" << std::endl;
+        //     exit(1);
+        // }
         return size * m;
     }
     return atoll(value.c_str());
