@@ -16,6 +16,7 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
     }
     remouve_comments(content);
     validate_brackets(content);
+    validate_structure(content);
     validate_semicolons(content);
     size_t pos = 0;
     while(pos < content.size())
@@ -27,6 +28,13 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
         configs.push_back(config);
         pos = server_pos + 1;
     }
+    for(size_t i = 0; i < configs.size(); i++)
+        for(size_t j = i + 1; j < configs.size(); j++)
+            if(configs[i].port == configs[j].port && configs[i].host == configs[j].host)
+            {
+                std::cerr << "Error: duplicate port " << configs[i].port << std::endl;
+                exit(1);
+            }
     return configs;
 }
 void Parser::validate_semicolons(const std::string& content)
@@ -83,6 +91,32 @@ void Parser::validate_brackets(const std::string& content)
         exit(1);
     }
 }
+void Parser::validate_structure(const std::string& content)
+{
+    std::istringstream stream(content);
+    std::string line;
+    int line_num = 0;
+
+    while(std::getline(stream, line))
+    {
+        line_num++;
+        std::string trimmed = Utils::trim(line);
+        if(trimmed.empty()) continue;
+
+        std::string first_word = trimmed.substr(0, trimmed.find_first_of(" \t"));
+
+        if(first_word == "server" || first_word == "location")
+        {
+            if(trimmed.find('{') == std::string::npos)
+            {
+                std::cerr << "Error: missing '{' after '"
+                          << trimmed << "' at line "
+                          << line_num << std::endl;
+                exit(1);
+            }
+        }
+    }
+}
 std::string Parser::read_File(const std::string& path)
 {
     std::ifstream file(path.c_str());
@@ -96,40 +130,43 @@ std::string Parser::read_File(const std::string& path)
 
 void Parser::remouve_comments(std::string& content)
 {
-    size_t pos = 0;
-    while ((pos = content.find('#', pos)) != std::string::npos)
-    {
-        size_t end = content.find('\n', pos);
-        if(end == std::string::npos)
-            content.erase(pos);
-        else
-            content.erase(pos, end - pos);
+    std::string result;
+    std::istringstream stream(content);
+    std::string line;
+
+    while (std::getline(stream, line)) {
+        size_t comment_pos = line.find('#');
+        if (comment_pos != std::string::npos) {
+            line = line.substr(0, comment_pos);
+        }
+        if (!line.empty() || comment_pos != std::string::npos) {
+            result += line + "\n";
+        }
     }
+    content = result;
 }
 size_t parse_size(const std::string& value)
 {
-    char unit = value[value.length() - 1];
-    size_t m = 1;
+    if (value.empty()) return 0;
 
-    if(isalpha(unit))
+    size_t m = 1;
+    char unit = value[value.length() - 1];
+    std::string num_part = value;
+
+    if (isalpha(unit))
     {
-        std::string num = value.substr(0, value.length() - 1);
-        size_t size = atoll(num.c_str());
-        if(unit == 'M' || unit == 'm')
-            m = 1024 * 1024;
-        else if(unit == 'k' || unit == 'K')
-            m = 1024;
-        else if(unit == 'G' || unit == 'g')
-            m = 1024 * 1024 *1024;
-        
-        // if(size >  / m)
-        // {
-        //     std::cerr << "Error: client_max_body_size overflow" << std::endl;
-        //     exit(1);
-        // }
-        return size * m;
+        num_part = value.substr(0, value.length() - 1);
+        if (unit == 'M' || unit == 'm') m = 1024 * 1024;
+        else if (unit == 'K' || unit == 'k') m = 1024;
+        else if (unit == 'G' || unit == 'g') m = 1024 * 1024 * 1024;
     }
-    return atoll(value.c_str());
+
+    unsigned long long size = std::strtoull(num_part.c_str(), NULL, 10);
+    if (size > 10240 && (m > 1024)) { 
+        std::cerr << "Error: client_max_body_size is too large!" << std::endl;
+        exit(1);
+    }
+    return static_cast<size_t>(size * m);
 }
 ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
 {
@@ -161,20 +198,31 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
         if(parts.empty())
             continue;
         std::string key = parts[0];
-        if(key == "listen")
+        if (key == "listen")
         {
-            if(parts.size() > 1)
-                config.port = atoi(parts[1].c_str());
+            if (parts.size() > 1) {
+                long port = std::atol(parts[1].c_str());
+                if (port < 1 || port > 65535) {
+                    std::cerr << "Error: Invalid port number '" << parts[1] << "' (must be 1-65535)" << std::endl;
+                    exit(1);
+                }
+                config.port = static_cast<int>(port);
+            }
         }
         else if(key == "server_name")
         {
-            if(parts.size() > 1)
-                config.server_name = parts[1];
+            for(size_t i = 1; i < parts.size(); i++)
+                config.server_names.push_back(parts[i]);
         }
         else if(key == "root")
         {
             if(parts.size() > 1)
                 config.root = parts[1];
+        }
+        else if (key == "host")
+        {
+            if(parts.size() > 1)
+                config.host = parts[1]; 
         }
         else if(key == "index")
         {
@@ -309,14 +357,19 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
             if(parts.size() > 1)
                 location.allow_upload = (parts[1] == "on");
         }
-        else if(key == "return")
+        else if (key == "return")
         {
-            if(parts.size() > 2)
+            if (parts.size() > 2)
             {
-                location.redirect_code = atoi(parts[1].c_str());
+                int code = std::atoi(parts[1].c_str());
+                if (code < 300 || code > 599) {
+                    std::cerr << "Error: Invalid return code '" << code << "'" << std::endl;
+                    exit(1);
+                }
+                location.redirect_code = code;
                 location.redirect_url  = parts[2];
             }
-            else if(parts.size() > 1)
+            else if (parts.size() > 1)
             {
                 location.redirect_code = 301;
                 location.redirect_url  = parts[1];

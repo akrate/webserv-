@@ -18,6 +18,7 @@ class Parser {
         static LocationConfig parse_location_block(const std::string& content, size_t& pos, std::string& path);
         static void validate_brackets(const std::string& content);
         static void validate_semicolons(const std::string& content);
+        static void validate_structure(const std::string& content);
 
 };
 
