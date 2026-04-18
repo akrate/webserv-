@@ -45,6 +45,15 @@ class ServerConfig
         
 };
 
+class HttpRequest
+{
+    public:
+        std::string method;
+        std::string path;
+        std::string version;
+        std::string body;
+};
+
 namespace Utils
 {
 	std::string trim(const std::string& str);
