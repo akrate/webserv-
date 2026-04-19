@@ -52,12 +52,15 @@ class HttpRequest
         std::string path;
         std::string version;
         std::string body;
+	    std::map<std::string, std::string> headers;
+
 };
 
 namespace Utils
 {
 	std::string trim(const std::string& str);
     std::vector<std::string> split(const std::string& str);
+    std::string to_upper(const std::string& str);
 
 }
 #endif

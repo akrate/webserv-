@@ -20,6 +20,14 @@ namespace Utils
             tokens.push_back(token);
         return tokens;
     }
+    std::string to_upper(const std::string& str)
+    {
+        std::string s = str;
+        for(size_t i = 0; i < s.length(); i++)
+            s[i] = std::toupper(s[i]);
+        return s;
+    }
+    
 }
   
 
