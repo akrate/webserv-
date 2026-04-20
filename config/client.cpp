@@ -31,6 +31,7 @@ void Client::parse_request()
     }
     headers_parsed = true;
     // hada parse dyal body
+    
 
 }
 
@@ -44,5 +45,17 @@ void Client::parse_request_line(const std::string &line)
     request.method = Utils::to_upper(parts[0]);
     std::string path_and_query = parts[1];
     request.version = parts[3];
-    
+    size_t pos_query = path_and_query.find('?');
+    if(pos_query != std::string::npos)
+    {
+        request.path = path_and_query.substr(0, pos_query);
+        request.query = path_and_query.substr(pos_query + 1);
+    }
+    else
+    {
+        request.path = path_and_query;
+        request.query = "";
+    }
+    if(request.version != "HTTP\1.0" && request.version != "HTTP\1.1")
+        return;
 }

@@ -52,6 +52,7 @@ class HttpRequest
         std::string path;
         std::string version;
         std::string body;
+        std::string query;
 	    std::map<std::string, std::string> headers;
 
 };
