@@ -2,6 +2,8 @@
 
 Client::Client(): request_complete(false), headers_parsed(false)
 {
+    content_length = 0;
+    is_chunked = false;
 
 }
 
@@ -20,6 +22,7 @@ void Client::parse_request()
     //HADA A si mohssin header
     while(getline(s, line))
     {
+        Utils::trim(line);
         if(line == "\r" || line.empty())
             break;
         size_t colon = line.find(':');
@@ -31,6 +34,7 @@ void Client::parse_request()
     }
     headers_parsed = true;
     // hada parse dyal body
+    if(request.headers.count("Content-length"))
     
 
 }
@@ -44,7 +48,7 @@ void Client::parse_request_line(const std::string &line)
         return;
     request.method = Utils::to_upper(parts[0]);
     std::string path_and_query = parts[1];
-    request.version = parts[3];
+    request.version = parts[2];
     size_t pos_query = path_and_query.find('?');
     if(pos_query != std::string::npos)
     {
@@ -56,6 +60,6 @@ void Client::parse_request_line(const std::string &line)
         request.path = path_and_query;
         request.query = "";
     }
-    if(request.version != "HTTP\1.0" && request.version != "HTTP\1.1")
+    if(request.version != "HTTP/1.0" && request.version != "HTTP/1.1")
         return;
 }

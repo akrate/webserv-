@@ -11,6 +11,8 @@ public:
     HttpRequest request;
     bool request_complete;
     bool headers_parsed;
+    size_t content_length;
+    bool is_chunked;
     void parse_request();
     void parse_request_line(const std::string& line);
 };
