@@ -27,6 +27,18 @@ namespace Utils
             s[i] = std::toupper(s[i]);
         return s;
     }
+    void trim2(std::string& str)
+    {
+        size_t start = str.find_first_not_of(" \n\t\r");
+        if (start == std::string::npos)
+        {
+            str.clear();
+            return;
+        }
+        size_t end = str.find_last_not_of(" \n\t\r");
+
+        str = str.substr(start, end - start + 1);
+    }
     
 }
   
