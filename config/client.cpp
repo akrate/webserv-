@@ -62,14 +62,16 @@ void Client::parse_request()
             }
             content_length = (size_t)val;
         }
-        if(request.headers.count("transfer-encoding") && request.headers["transfer-encoding"] == "chunked")
+        if (request.headers.count("transfer-encoding") && request.headers["transfer-encoding"] == "chunked")
+        {
             is_chunked = true;
+            content_length = 0;
+        }
     }
-    // if(is_chunked)
-    //     parse_chunked_body();
-    
-    parse_body();
-    
+    if(is_chunked)
+        parse_chunked_body();
+    else
+        parse_body();
 
 }
 
@@ -144,6 +146,7 @@ void Client::parse_body()
 
     if(request.method == "GET" || request.method == "DELETE")
     {
+        request.body.clear();
         request_complete = true;
         return;
     }
@@ -158,3 +161,40 @@ void Client::parse_body()
     request_complete = true;
 }
 
+void Client::parse_chunked_body()
+{
+    request.body.clear();
+    size_t header_end = raw_request.find("\r\n\r\n");
+    std::string data = raw_request.substr(header_end + 4);
+    size_t pos = 0;
+    while(pos < data.size())
+    {
+        size_t chunk_size_end = data.find("\r\n", pos);
+        if(chunk_size_end == std::string::npos)
+            return;
+        std::string size_hex = data.substr(pos, chunk_size_end - pos);
+        char *end;
+        long chunk_size = strtol(size_hex.c_str(), &end, 16);
+        if (*end != '\0' || chunk_size < 0)
+        {
+            error_code = 400;
+            return;
+        }     
+        if(chunk_size == 0)
+        {
+            request_complete = true;
+            raw_request.clear();
+            return;
+        }
+        pos = chunk_size_end + 2;
+        if(pos + chunk_size > data.size())
+            return;
+        request.body += data.substr(pos, chunk_size);
+        if (data.substr(pos + chunk_size, 2) != "\r\n")
+        {
+            error_code = 400;
+            return;
+        }
+        pos += chunk_size + 2;
+    }
+}
