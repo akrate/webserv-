@@ -1,7 +1,8 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
-#include "webserv.hpp"
+// #include "webserv.hpp"
+#include "response.hpp"
 
 class Client
 {
@@ -14,6 +15,9 @@ public:
     void parse_request();
     const HttpRequest& getRequest() const;
     int getErrorCode() const;
+    //////////////////////////////////////////oussama
+    void prepareResponse(const Response& res);
+    // bool handleSend(int socket_fd);
 private:
     bool   request_complete;
     bool   headers_parsed;
@@ -24,6 +28,9 @@ private:
     void parse_body();
     void parse_chunked_body();
     void parse_headers(const std::string& headers_part);
+    //////////////////////////////////////////// oussama
+    std::string send_buffer;
+    size_t bytes_sent;
 };
 
 #endif

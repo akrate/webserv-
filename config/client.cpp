@@ -198,3 +198,28 @@ void Client::parse_chunked_body()
         pos += chunk_size + 2;
     }
 }
+
+
+///////////////////////////////////////////oussama
+void Client::prepareResponse(const Response& res)
+{
+    send_buffer = res.toString();
+    bytes_sent = 0;
+}
+
+// bool Client::handleSend(int socket_fd) {
+//     std::string to_send = send_buffer.substr(bytes_sent);
+    
+//     ssize_t ret = send(socket_fd, to_send.c_str(), to_send.size(), 0);
+    
+//     if (ret > 0) {
+//         bytes_sent += ret;
+//     }
+    
+//     if (bytes_sent >= _send_buffer.size()) {
+//         send_buffer.clear();
+//         bytes_sent = 0;
+//         return true; 
+//     }
+//     return false;
+// }
