@@ -30,7 +30,7 @@ void Client::parse_request()
     if(request_complete || error_code != 0)
         return;
     size_t pos = raw_request.find("\r\n\r\n");
-    if(pos == std::string::npos)
+    if(pos == std::string::npos)    
         return;
     if(!headers_parsed)
     {
