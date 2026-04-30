@@ -13,6 +13,12 @@ void Server::close_all_sockets() {
             close(listen_fds[i]);
     listen_fds.clear();
 }
+void Server::disconnect_client(std::vector<struct pollfd>& fds, size_t i)
+{
+    close(fds[i].fd);
+    clients.erase(fds[i].fd);
+    fds.erase(fds.begin() + i);
+}
 int Server::create_socket(const ServerConfig& config)
 {
     int fd = socket(AF_INET,SOCK_STREAM,0);
@@ -79,6 +85,7 @@ int Server::init(const std::string& configFile) {
         int fd = create_socket(configs[i]);
         if (fd < 0) {
             close_all_sockets();
+            
             return -1;
         }
         listen_fds.push_back(fd);
@@ -117,41 +124,30 @@ void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
     pfd.events  = POLLIN;
     pfd.revents = 0;
     fds.push_back(pfd);
- 
+    clients[client_fd] = Client();
     std::cout << "New client connected (fd=" << client_fd << ")" << std::endl;
 }
- 
-void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
+ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 {
+    int fd = fds[i].fd;
     char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
- 
-    int bytes = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
- 
+    int bytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
     if (bytes <= 0) {
-        if (bytes < 0)
-            std::cerr << "Error: recv() failed: " << strerror(errno) << std::endl;
-        std::cout << "Client disconnected (fd=" << fds[i].fd << ")" << std::endl;
-        close(fds[i].fd);
-        fds.erase(fds.begin() + i);
+        disconnect_client(fds, i);
         return;
     }
- 
-    std::cout << "Request from fd=" << fds[i].fd << " ---\n"
-              << buffer << std::endl;
+    clients[fd].append_data(std::string(buffer, bytes));
+    if (clients[fd].getErrorCode() != 0) {
+        std::cerr << "Parse error: " << clients[fd].getErrorCode() << std::endl;
+        disconnect_client(fds, i);
+        return;
+    }
+    if (!clients[fd].is_complete())
+        return;
+    const HttpRequest& req = clients[fd].getRequest();
+    std::cout << req.method << " " << req.path << std::endl;
 
-    std::string response =
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/plain\r\n"
-        "Content-Length: 13\r\n"
-        "Connection: close\r\n"
-        "\r\n"
-        "farid w9";
- 
-    send(fds[i].fd, response.c_str(), response.size(), 0);
- 
-    close(fds[i].fd);
-    fds.erase(fds.begin() + i);
 }
  
 void Server::run()
