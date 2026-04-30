@@ -16,7 +16,7 @@ class Server {
     private:
         std::vector<ServerConfig>   configs;
         std::vector<int>            listen_fds;
-
+        std::map<int, size_t> client_config_index;
         int create_socket(const ServerConfig& config);
         void close_all_sockets();
         std::map<int, Client>       clients; /// for fork sockets

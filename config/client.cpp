@@ -201,11 +201,11 @@ void Client::parse_chunked_body()
 
 
 ///////////////////////////////////////////oussama
-void Client::prepareResponse(const Response& res)
-{
-    send_buffer = res.toString();
-    bytes_sent = 0;
-}
+// void Client::prepareResponse(const Response& res)
+// {
+//     send_buffer = res.toString();
+//     bytes_sent = 0;
+// }
 
 // bool Client::handleSend(int socket_fd) {
 //     std::string to_send = send_buffer.substr(bytes_sent);
@@ -225,19 +225,19 @@ void Client::prepareResponse(const Response& res)
 // }
 
 
-std::string getExtension(const std::string& path)
-{
-    size_t point = path.find_last_of('.');
-    if (point == std::string::npos || point == path.length() - 1)
-    {
-        return "";
-    }
-    return path.substr(point + 1);
-}
+// std::string getExtension(const std::string& path)
+// {
+//     size_t point = path.find_last_of('.');
+//     if (point == std::string::npos || point == path.length() - 1)
+//     {
+//         return "";
+//     }
+//     return path.substr(point + 1);
+// }
 
-Response handleRequest(const HttpRequest& req)
-{
-    Response res;
+// Response handleRequest(const HttpRequest& req)
+// {
+//     Response res;
 
     
-}
+// }

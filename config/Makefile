@@ -8,6 +8,7 @@ OBJ_DIR = obj
 SRCS = main.cpp \
        Server.cpp \
 	   Parser.cpp \
+	   client.cpp \
 	   utils.cpp \
 
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)

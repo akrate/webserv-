@@ -15,8 +15,10 @@ void Server::close_all_sockets() {
 }
 void Server::disconnect_client(std::vector<struct pollfd>& fds, size_t i)
 {
-    close(fds[i].fd);
-    clients.erase(fds[i].fd);
+    int fd = fds[i].fd;
+    close(fd);
+    clients.erase(fd);
+    client_config_index.erase(fd);
     fds.erase(fds.begin() + i);
 }
 int Server::create_socket(const ServerConfig& config)
@@ -105,8 +107,7 @@ bool Server::is_listen_fd(int fd)
             return true;
     return false;
 }
- 
-void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
+ void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
 {
     int client_fd = accept(listen_fd, NULL, NULL);
     if (client_fd < 0) {
@@ -125,9 +126,15 @@ void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
     pfd.revents = 0;
     fds.push_back(pfd);
     clients[client_fd] = Client();
+    for (size_t i = 0; i < listen_fds.size(); i++) {
+        if (listen_fds[i] == listen_fd) {
+            client_config_index[client_fd] = i;
+            break;
+        }
+    }
     std::cout << "New client connected (fd=" << client_fd << ")" << std::endl;
 }
- void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
+void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 {
     int fd = fds[i].fd;
     char buffer[4096];
@@ -139,15 +146,35 @@ void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
     }
     clients[fd].append_data(std::string(buffer, bytes));
     if (clients[fd].getErrorCode() != 0) {
-        std::cerr << "Parse error: " << clients[fd].getErrorCode() << std::endl;
         disconnect_client(fds, i);
         return;
     }
     if (!clients[fd].is_complete())
         return;
-    const HttpRequest& req = clients[fd].getRequest();
-    std::cout << req.method << " " << req.path << std::endl;
 
+    const HttpRequest&   req    = clients[fd].getRequest();
+    const ServerConfig&  config = configs[client_config_index[fd]];
+
+    const LocationConfig* location = NULL;
+    for (size_t j = 0; j < config.locations.size(); j++) {
+        if (req.path.find(config.locations[j].path) == 0) {
+            location = &config.locations[j];
+            break;
+        }
+    }
+    if (!location) {
+        std::string err = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
+        send(fd, err.c_str(), err.size(), 0);
+        disconnect_client(fds, i);
+        return;
+    }
+    std::cout << "Method : " << req.method  << std::endl;
+    std::cout << "Path   : " << req.path    << std::endl;
+    std::cout << "Host   : " << config.host << std::endl;
+    std::cout << "Port   : " << config.port << std::endl;
+    std::cout << "Root   : " << location->root << std::endl;
+    std::cout << req.method << " " << req.path << " -> " << location->root << std::endl;
+    disconnect_client(fds, i);
 }
  
 void Server::run()
