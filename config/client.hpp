@@ -32,5 +32,7 @@ private:
     std::string send_buffer;
     size_t bytes_sent;
 };
+std::string getExtension(const std::string& path);
+
 
 #endif

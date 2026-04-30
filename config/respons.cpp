@@ -1,4 +1,4 @@
-#include "response.hpp"
+#include "response.hpp" 
 
 Response::Response() :
     status_code(200),
@@ -7,6 +7,31 @@ Response::Response() :
     headers["Server"] = "WebServ/1.0";
     headers["Connection"] = "close";
 }
+
+std::string Response::getMessageBycode(int code) const
+        {
+            switch (code)
+            {
+                case 200:
+                    return "OK";
+                case 201:
+                    return "Created";
+                case 400:
+                    return "Bad Request";
+                case 403:
+                    return "Forbidden";
+                case 404:
+                    return "Not Found";
+                case 405:
+                    return "Method Not Allowed";
+                case 500:
+                    return "Internal Server Error";
+                case 505:
+                    return "HTTP Version Not Supported";
+                default:
+                    return "Internal Server Error";
+            }
+        }
 std::string Response::toString() const
 {
     std::stringstream ss;
@@ -42,4 +67,19 @@ void Response::setBody(const std::string& body_content)
     std::stringstream ss;
     ss << body.size();
     addHeader("content-length",ss.str());
+}
+
+std::string Response::getMediaType(const std::string& extension)
+{
+    if (extension == "html" || extension == "htm") return "text/html";
+    if (extension == "css") return "text/css";
+    if (extension == "js")  return "application/javascript";
+    if (extension == "png") return "image/png";
+    if (extension == "jpg" || extension == "jpeg") return "image/jpeg";
+    if (extension == "gif") return "image/gif";
+    if (extension == "txt") return "text/plain";
+    if (extension == "pdf") return "application/pdf";
+    if (extension == "ico") return "image/x-icon";
+    
+    return "application/octet-stream";
 }

@@ -223,3 +223,21 @@ void Client::prepareResponse(const Response& res)
 //     }
 //     return false;
 // }
+
+
+std::string getExtension(const std::string& path)
+{
+    size_t point = path.find_last_of('.');
+    if (point == std::string::npos || point == path.length() - 1)
+    {
+        return "";
+    }
+    return path.substr(point + 1);
+}
+
+Response handleRequest(const HttpRequest& req)
+{
+    Response res;
+
+    
+}
