@@ -5,13 +5,13 @@
 #include "Parser.hpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include "client.hpp"
+// #include "client.hpp"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
 #include <cstring>
-
+class Client;
 class Server {
     private:
         std::vector<ServerConfig>   configs;

@@ -10,6 +10,7 @@ SRCS = main.cpp \
 	   Parser.cpp \
 	   client.cpp \
 	   utils.cpp \
+	   respons.cpp \
 
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 

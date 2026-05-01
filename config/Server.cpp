@@ -1,5 +1,6 @@
 #include "Server.hpp"
-
+#include "client.hpp"
+#include "response.hpp"
 
 Server::Server() {
 }
@@ -146,6 +147,9 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
     }
     clients[fd].append_data(std::string(buffer, bytes));
     if (clients[fd].getErrorCode() != 0) {
+        Response response = build_page_error(clients[fd].getErrorCode());
+        std::string final = response.toString();
+        send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fds, i);
         return;
     }
@@ -168,12 +172,16 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
         disconnect_client(fds, i);
         return;
     }
+    Response response = build_response(req, config, *location);
+
+    std::string final = response.toString();
+    send(fd, final.c_str(), final.size(), 0);
     std::cout << "Method : " << req.method  << std::endl;
     std::cout << "Path   : " << req.path    << std::endl;
     std::cout << "Host   : " << config.host << std::endl;
     std::cout << "Port   : " << config.port << std::endl;
     std::cout << "Root   : " << location->root << std::endl;
-    std::cout << req.method << " " << req.path << " -> " << location->root << std::endl;
+    std::cout << req.method << "+++++ " << req.path << " -> " << location->root << std::endl;
     disconnect_client(fds, i);
 }
  
