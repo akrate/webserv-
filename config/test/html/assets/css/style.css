@@ -1,0 +1,159 @@
+@import url('https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Cormorant+Garamond:wght@300;600&family=Jost:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; font-family: 'Jost', sans-serif; color: #1a1008; background: #faf9f6; }
+
+/* ── Page header / navbar ── */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 48px;
+  border-bottom: 1px solid #ede9e0;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.header__logo {
+  font-family: 'Kaushan Script', cursive;
+  font-size: 24px;
+  color: #3B6D11;
+  text-decoration: none;
+}
+.nav { display: flex; align-items: center; gap: 4px; }
+.nav__link {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b6055;
+  text-decoration: none;
+  padding: 7px 14px;
+  border-radius: 4px;
+  transition: color 0.2s, background 0.2s;
+}
+.nav__link:hover, .nav__link.active { color: #3B6D11; background: rgba(59,109,17,0.07); }
+.nav__cta {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #3B6D11;
+  text-decoration: none;
+  padding: 9px 20px;
+  border-radius: 4px;
+  margin-left: 8px;
+  transition: background 0.2s;
+}
+.nav__cta:hover { background: #27500A; }
+
+/* ── Page hero banner ── */
+.page-hero {
+  background: #1a1008;
+  padding: 64px 48px;
+  text-align: center;
+}
+.page-hero__pre { font-family: 'Kaushan Script', cursive; font-size: 22px; color: #fce38a; margin-bottom: 8px; }
+.page-hero__title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 300;
+  color: #fff;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.page-hero__sub { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.4); margin-top: 12px; }
+
+/* ── Content area ── */
+.page-content { max-width: 960px; margin: 0 auto; padding: 64px 32px; }
+.section-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  font-weight: 300;
+  color: #1a1008;
+  letter-spacing: 0.06em;
+  margin-bottom: 16px;
+}
+.section-sub { font-size: 14px; color: #6b6055; line-height: 1.8; max-width: 640px; }
+
+/* ── Cards grid ── */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 40px; }
+.card {
+  background: #fff;
+  border: 1px solid #ede9e0;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.07); }
+.card__img { width: 100%; height: 180px; background: #e8e2d6; object-fit: cover; display: block; }
+.card__img-placeholder { width: 100%; height: 180px; background: linear-gradient(135deg, #d4c9a8 0%, #b8a882 100%); display: flex; align-items: center; justify-content: center; }
+.card__img-placeholder span { font-family: 'Kaushan Script', cursive; font-size: 28px; color: rgba(255,255,255,0.6); }
+.card__body { padding: 20px; }
+.card__tag { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #3B6D11; font-weight: 500; margin-bottom: 6px; }
+.card__title { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: #1a1008; margin-bottom: 8px; }
+.card__desc { font-size: 13px; color: #6b6055; line-height: 1.7; }
+.card__footer { padding: 0 20px 20px; display: flex; justify-content: space-between; align-items: center; }
+.card__price { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: #1a1008; }
+.card__btn {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #1a1008;
+  background: #fce38a;
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.card__btn:hover { background: #f5d060; }
+
+/* ── Footer ── */
+.page-footer {
+  background: #1a1008;
+  text-align: center;
+  padding: 32px;
+  margin-top: 80px;
+}
+.page-footer p { font-size: 12px; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
+.page-footer a { color: #fce38a; text-decoration: none; }
+
+/* ── Form styles ── */
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: #6b6055; margin-bottom: 6px; }
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 12px 16px;
+  font-family: 'Jost', sans-serif;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid #ddd8cc;
+  border-radius: 6px;
+  color: #1a1008;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.form-group input:focus,
+.form-group textarea:focus { border-color: #3B6D11; box-shadow: 0 0 0 3px rgba(59,109,17,0.1); }
+.form-group textarea { resize: vertical; min-height: 120px; }
+.btn-submit {
+  font-family: 'Jost', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #3B6D11;
+  border: none;
+  padding: 14px 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-submit:hover { background: #27500A; }
+

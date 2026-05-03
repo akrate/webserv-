@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>404 — Not Found | WebServ</title>
+<title>500 — Internal Server Error | WebServ</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
   --bg:#020408;--cyan:#00f5ff;--purple:#b94fff;--green:#00ff88;
   --red:#ff2d55;--border:rgba(0,245,255,.15);--text:#c8d8e8;
-  --accent:var(--cyan);
+  --accent:#ff2d55;
 }
 body{
   background:var(--bg);color:var(--text);
@@ -170,18 +170,18 @@ body{
 <div class="particles" id="particles"></div>
 
 <div class="error-wrap">
-  <div class="glitch-label">Error Code · 404</div>
+  <div class="glitch-label">Error Code · 500</div>
 
   <div class="code-3d">
     <div class="scanline"></div>
-    <span class="shadow-text">404</span>
-    <span class="front-text">404</span>
+    <span class="shadow-text">500</span>
+    <span class="front-text">500</span>
   </div>
 
   <div class="divider"></div>
-  <div class="error-title">Page Not Found</div>
+  <div class="error-title">Internal Server Error</div>
   <div class="error-desc">
-    The resource you requested has gone dark. It may have been moved, deleted, or never existed in this dimension.
+    Something went wrong on our end. The server encountered an unexpected condition. Try again later.
   </div>
 
   <div class="btn-row">
@@ -192,7 +192,7 @@ body{
   <div class="status-line">
     <span><span class="dot"></span> Server Online</span>
     <span>WebServ / 1.0</span>
-    <span>HTTP 404</span>
+    <span>HTTP 500</span>
   </div>
 </div>
 

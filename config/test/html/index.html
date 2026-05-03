@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css2?family=Kaushan+Script&family=Cormorant+Garamond:wght@300;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <title>Fusion — Luxury Travel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: 'Jost', sans-serif; }
+
+    .intro {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      background: url('Desert_UAE.jpeg') center/cover no-repeat;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .intro::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to bottom, rgba(10,6,2,0.45) 0%, rgba(10,6,2,0.2) 40%, rgba(10,6,2,0.75) 100%);
+      z-index: 1;
+    }
+
+    .header {
+      position: relative;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 28px 48px 0;
+    }
+    .header__logo {
+      font-family: 'Kaushan Script', cursive;
+      font-size: 26px;
+      color: #fce38a;
+      text-decoration: none;
+    }
+    .nav { display: flex; align-items: center; gap: 4px; }
+    .nav__link {
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.7);
+      text-decoration: none;
+      padding: 7px 14px;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav__link:hover, .nav__link.active { color: #fce38a; background: rgba(252,227,138,0.08); }
+    .nav__cta {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #1a1008;
+      background: #fce38a;
+      text-decoration: none;
+      padding: 9px 20px;
+      border-radius: 4px;
+      margin-left: 8px;
+      transition: background 0.2s;
+    }
+    .nav__cta:hover { background: #f5d060; }
+
+    .intro__inner {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: 14px;
+      padding-bottom: 80px;
+    }
+    .intro__pretitle { font-family: 'Kaushan Script', cursive; font-size: 32px; color: #fce38a; }
+    .intro__title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(60px, 10vw, 100px);
+      font-weight: 300;
+      color: #fff;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    .intro__subtitle {
+      font-size: 12px;
+      font-weight: 300;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+    }
+    .intro__btns { display: flex; gap: 14px; margin-top: 24px; }
+    .btn-primary {
+      font-family: 'Jost', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #1a1008;
+      background: #fce38a;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #f5d060; }
+    .btn-ghost {
+      font-family: 'Jost', sans-serif;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.8);
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 4px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .scroll-hint__label { font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
+    .scroll-hint__line { width: 1px; height: 40px; background: linear-gradient(to bottom, rgba(252,227,138,0.6), transparent); }
+  </style>
+</head>
+<body>
+<section class="intro">
+  <header class="header">
+    <a href="index.html" class="header__logo">Fusion</a>
+    <nav class="nav">
+      <a href="index.html" class="nav__link active">Home</a>
+      <a href="tours/tours.html" class="nav__link">Tours</a>
+      <a href="services.html" class="nav__link">Services</a>
+      <a href="about.html" class="nav__link">About</a>
+      <a href="contact.html" class="nav__link">Contact</a>
+      <a href="/cgi-bin/acc.py" class="nav__cta">Account</a>
+    </nav>
+  </header>
+  <div class="intro__inner">
+    <p class="intro__pretitle">Discover the</p>
+    <h1 class="intro__title">Fusion</h1>
+    <p class="intro__subtitle">Luxury travel experiences across the Arabian peninsula</p>
+    <div class="intro__btns">
+      <a href="tours/tours.html" class="btn-primary">Explore Tours</a>
+      <a href="about.html" class="btn-ghost">Our Story</a>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span class="scroll-hint__label">Scroll</span>
+    <div class="scroll-hint__line"></div>
+  </div>
+</section>
+</body>
+</html>

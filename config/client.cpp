@@ -32,6 +32,7 @@ void Client::parse_request()
     size_t pos = raw_request.find("\r\n\r\n");
     if(pos == std::string::npos)    
         return;
+    std::cout << "full request ==> " << raw_request << std::endl;
     if(!headers_parsed)
     {
         std::string headers_part = raw_request.substr(0, pos);

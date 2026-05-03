@@ -2,7 +2,8 @@
 #define RESPONSE_HPP
 
 #include "Server.hpp"
-
+#include "client.hpp"
+#include <sys/stat.h>
 class Response
 {
     private:

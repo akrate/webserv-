@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>WebServ — Test Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#020408;--panel:#0a0f1a;--cyan:#00f5ff;--purple:#b94fff;
+  --green:#00ff88;--red:#ff2d55;--amber:#ffb800;
+  --glass:rgba(0,245,255,.04);--border:rgba(0,245,255,.13);--text:#c8d8e8;
+}
+body{background:var(--bg);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:15px;min-height:100vh;}
+.bg-canvas{position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse 80% 50% at 20% 10%,rgba(0,245,255,.05) 0%,transparent 60%),
+    radial-gradient(ellipse 60% 60% at 80% 90%,rgba(185,79,255,.05) 0%,transparent 60%),#020408;}
+.grid-lines{position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(0,245,255,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,245,255,.03) 1px,transparent 1px);
+  background-size:60px 60px;animation:gridMove 20s linear infinite;}
+@keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(60px)}}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:100;padding:1rem 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  background:rgba(2,4,8,.85);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);}
+.logo{font-family:'Orbitron',monospace;font-size:1.1rem;font-weight:900;
+  color:var(--cyan);text-shadow:0 0 20px rgba(0,245,255,.4);letter-spacing:.15em;}
+.logo span{color:var(--purple)}
+.nav-tag{font-size:.75rem;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(200,216,232,.35);border:1px solid var(--border);
+  padding:.3rem .8rem;border-radius:2rem;backdrop-filter:blur(6px);}
+
+/* LAYOUT */
+.page{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:2rem;}
+.page-header{margin-bottom:2rem;}
+.page-header h1{font-family:'Orbitron',monospace;font-size:1.6rem;font-weight:700;
+  background:linear-gradient(135deg,#fff,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  margin-bottom:.4rem;}
+.page-header p{color:rgba(200,216,232,.5);font-size:.95rem;font-weight:300;line-height:1.6;}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.2rem;}
+
+/* CARD */
+.card{background:var(--glass);border:1px solid var(--border);border-radius:.7rem;
+  padding:1.4rem;backdrop-filter:blur(10px);transition:.3s;position:relative;overflow:hidden;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--card-accent,var(--cyan)),transparent);
+  opacity:.6;}
+.card:hover{border-color:rgba(0,245,255,.25);box-shadow:0 8px 40px rgba(0,245,255,.05);}
+.card-title{font-family:'Orbitron',monospace;font-size:.95rem;font-weight:700;
+  color:#fff;margin-bottom:.3rem;letter-spacing:.04em;}
+.card-sub{font-size:.82rem;color:rgba(200,216,232,.45);margin-bottom:1.1rem;line-height:1.5;}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:.4rem;
+  padding:.5rem 1.1rem;border-radius:.35rem;border:none;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;transition:.25s;text-decoration:none;}
+.btn-cyan{background:rgba(0,245,255,.12);color:var(--cyan);border:1px solid rgba(0,245,255,.25);}
+.btn-cyan:hover{background:rgba(0,245,255,.22);box-shadow:0 0 18px rgba(0,245,255,.15);}
+.btn-purple{background:rgba(185,79,255,.12);color:var(--purple);border:1px solid rgba(185,79,255,.25);}
+.btn-purple:hover{background:rgba(185,79,255,.22);}
+.btn-red{background:rgba(255,45,85,.12);color:var(--red);border:1px solid rgba(255,45,85,.25);}
+.btn-red:hover{background:rgba(255,45,85,.22);}
+.btn-green{background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.25);}
+.btn-green:hover{background:rgba(0,255,136,.22);}
+.btn-amber{background:rgba(255,184,0,.12);color:var(--amber);border:1px solid rgba(255,184,0,.25);}
+.btn-amber:hover{background:rgba(255,184,0,.22);}
+.btn-group{display:flex;flex-wrap:wrap;gap:.5rem;}
+
+/* INPUTS */
+.inp{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);
+  border-radius:.35rem;padding:.55rem .9rem;
+  color:var(--text);font-family:'Share Tech Mono',monospace;font-size:.85rem;
+  outline:none;transition:.25s;margin-bottom:.6rem;}
+.inp:focus{border-color:rgba(0,245,255,.4);box-shadow:0 0 12px rgba(0,245,255,.08);}
+.inp::placeholder{color:rgba(200,216,232,.25)}
+textarea.inp{resize:vertical;min-height:80px;font-family:'Share Tech Mono',monospace;}
+label.lbl{display:block;font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(200,216,232,.4);margin-bottom:.35rem;}
+
+/* FILE INPUT */
+.file-wrap{position:relative;margin-bottom:.6rem;}
+.file-inp{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--border);
+  border-radius:.35rem;padding:.55rem .9rem;color:rgba(200,216,232,.4);
+  font-family:'Rajdhani',sans-serif;font-size:.85rem;cursor:pointer;
+  display:flex;align-items:center;gap:.5rem;}
+.file-inp input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;}
+
+/* RESPONSE PANEL */
+.response-wrap{margin-top:1.5rem;}
+.response-header{display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem 1rem;background:rgba(0,245,255,.05);
+  border:1px solid var(--border);border-bottom:none;border-radius:.5rem .5rem 0 0;}
+.response-header span{font-family:'Orbitron',monospace;font-size:.75rem;letter-spacing:.1em;color:var(--cyan);}
+.status-badge{font-family:'Share Tech Mono',monospace;font-size:.8rem;
+  padding:.2rem .7rem;border-radius:2rem;}
+.s2xx{background:rgba(0,255,136,.12);color:var(--green);border:1px solid rgba(0,255,136,.25)}
+.s3xx{background:rgba(0,245,255,.12);color:var(--cyan);border:1px solid rgba(0,245,255,.25)}
+.s4xx{background:rgba(255,184,0,.12);color:var(--amber);border:1px solid rgba(255,184,0,.25)}
+.s5xx{background:rgba(255,45,85,.12);color:var(--red);border:1px solid rgba(255,45,85,.25)}
+.response-body{
+  background:#050a12;border:1px solid var(--border);border-radius:0 0 .5rem .5rem;
+  padding:1rem;font-family:'Share Tech Mono',monospace;font-size:.8rem;
+  line-height:1.7;color:rgba(200,216,232,.8);white-space:pre-wrap;word-break:break-all;
+  max-height:260px;overflow-y:auto;min-height:80px;}
+.response-body::-webkit-scrollbar{width:4px}
+.response-body::-webkit-scrollbar-track{background:transparent}
+.response-body::-webkit-scrollbar-thumb{background:rgba(0,245,255,.2);border-radius:2px}
+
+.loading{display:inline-block;width:8px;height:8px;border-radius:50%;
+  background:var(--cyan);animation:blink 1s step-end infinite;margin-right:4px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* divider */
+.sep{height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent);margin:.8rem 0;}
+
+/* method pill */
+.method{display:inline-block;font-size:.7rem;font-family:'Share Tech Mono',monospace;
+  padding:.15rem .5rem;border-radius:.25rem;margin-right:.3rem;font-weight:700;}
+.m-get{background:rgba(0,255,136,.15);color:var(--green)}
+.m-post{background:rgba(0,245,255,.15);color:var(--cyan)}
+.m-delete{background:rgba(255,45,85,.15);color:var(--red)}
+
+/* card color overrides */
+.card-get{--card-accent:var(--green)}
+.card-post{--card-accent:var(--cyan)}
+.card-delete{--card-accent:var(--red)}
+.card-cgi{--card-accent:var(--purple)}
+.card-error{--card-accent:var(--amber)}
+</style>
+</head>
+<body>
+<div class="bg-canvas"></div>
+<div class="grid-lines"></div>
+
+<nav>
+  <div class="logo">WEB<span>SERV</span></div>
+  <span class="nav-tag">// test dashboard</span>
+</nav>
+
+<div class="page">
+  <div class="page-header">
+    <h1>Manual Test Dashboard</h1>
+    <p>Use this page to manually validate GET, POST, DELETE, CGI, redirects, autoindex, and custom error pages.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- GET + AUTOINDEX + REDIRECT -->
+    <div class="card card-get">
+      <div class="card-title">GET + Autoindex + Redirect</div>
+      <div class="card-sub">Quick links for static content, directory listing, and redirect behavior.</div>
+      <div class="btn-group">
+        <button class="btn btn-green" onclick="doGet('/readonly/info.txt')"><span class="method m-get">GET</span>/readonly/info.txt</button>
+        <button class="btn btn-green" onclick="doGet('/uploads/')"><span class="method m-get">GET</span>/uploads/ (autoindex)</button>
+        <button class="btn btn-cyan" onclick="doGet('/go-home')"><span class="method m-get">GET</span>/go-home (302)</button>
+      </div>
+    </div>
+
+    <!-- CGI TESTS -->
+    <div class="card card-cgi">
+      <div class="card-title">CGI Tests</div>
+      <div class="card-sub">Runs Python CGI scripts from <code style="color:var(--purple);font-family:'Share Tech Mono',monospace">www/cgi-bin</code>.</div>
+      <div class="btn-group">
+        <button class="btn btn-purple" onclick="doGet('/cgi-bin/hello.py')"><span class="method m-get">GET</span>/cgi-bin/hello.py (simple)</button>
+        <button class="btn btn-purple" onclick="doGet('/cgi-bin/cgi_diagnostic.py')"><span class="method m-get">GET</span>/cgi-bin/cgi_diagnostic.py</button>
+        <button class="btn btn-purple" onclick="doGet('/cgi-bin/cgi_diagnostic.py?status=201')"><span class="method m-get">GET</span>/cgi-bin/cgi_diagnostic.py?status=201</button>
+        <button class="btn btn-purple" onclick="doGet('/cgi-bin/cgi_diagnostic.py?format=json')"><span class="method m-get">GET</span>/cgi-bin/cgi_diagnostic.py?format=json</button>
+        <button class="btn btn-purple" onclick="doGet('/cgi-bin/slow.py')"><span class="method m-get">GET</span>/cgi-bin/slow.py</button>
+      </div>
+    </div>
+
+    <!-- POST TEST -->
+    <div class="card card-post">
+      <div class="card-title">POST Test</div>
+      <div class="card-sub">Creates or replaces <code style="color:var(--cyan);font-family:'Share Tech Mono',monospace">/uploads/&lt;filename&gt;</code> with <code style="color:var(--cyan);font-family:'Share Tech Mono',monospace">?filename=…</code>. Select a file or send textarea content.</div>
+
+      <label class="lbl">Filename</label>
+      <input id="post-filename" class="inp" type="text" value="post_upload.txt" placeholder="post_upload.txt"/>
+
+      <label class="lbl">File (optional)</label>
+      <div class="file-wrap">
+        <div class="file-inp">
+          <span id="file-label" style="font-family:'Rajdhani',sans-serif">No file chosen</span>
+          <input type="file" id="post-file" onchange="document.getElementById('file-label').textContent = this.files[0]?.name || 'No file chosen'"/>
+        </div>
+      </div>
+
+      <label class="lbl">Body text</label>
+      <textarea id="post-body" class="inp" placeholder="hello from POST&#10;created by dashboard">hello from POST
+created by dashboard</textarea>
+
+      <button class="btn btn-cyan" onclick="doPost()" style="width:100%;justify-content:center">
+        <span class="method m-post">POST</span>/uploads?filename=…
+      </button>
+    </div>
+
+    <!-- DELETE TEST -->
+    <div class="card card-delete">
+      <div class="card-title">DELETE Test</div>
+      <div class="card-sub">Deletes the resource at the path you provide.</div>
+
+      <label class="lbl">Path to delete</label>
+      <input id="delete-path" class="inp" type="text" value="/uploads/post_upload.txt" placeholder="/uploads/filename.txt"/>
+
+      <button class="btn btn-red" onclick="doDelete()" style="width:100%;justify-content:center">
+        <span class="method m-delete">DELETE</span>path
+      </button>
+    </div>
+
+    <!-- ERROR PAGE CHECKS -->
+    <div class="card card-error">
+      <div class="card-title">Error Page Checks</div>
+      <div class="card-sub">Generate errors or open error pages directly to validate your custom templates.</div>
+      <div class="btn-group">
+        <button class="btn btn-amber" onclick="doGet('/this-does-not-exist-404')">404 Not Found</button>
+        <button class="btn btn-amber" onclick="window.open('/errors/405.html','_blank')">View 405 Page</button>
+        <button class="btn btn-amber" onclick="window.open('/errors/413.html','_blank')">View 413 Page</button>
+        <button class="btn btn-amber" onclick="doPost405()"><span class="method m-post">POST</span>/readonly/info.txt (405)</button>
+        <button class="btn btn-amber" onclick="doPost413()"><span class="method m-post">POST</span>/uploads (413)</button>
+      </div>
+    </div>
+
+    <!-- CUSTOM REQUEST -->
+    <div class="card" style="--card-accent:var(--text)">
+      <div class="card-title">Custom Request</div>
+      <div class="card-sub">Send any method to any path with a custom body.</div>
+
+      <div style="display:grid;grid-template-columns:110px 1fr;gap:.5rem;margin-bottom:.6rem">
+        <div>
+          <label class="lbl">Method</label>
+          <select id="custom-method" class="inp" style="margin-bottom:0">
+            <option>GET</option><option>POST</option><option>DELETE</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl">Path</label>
+          <input id="custom-path" class="inp" style="margin-bottom:0" type="text" value="/"/>
+        </div>
+      </div>
+      <label class="lbl">Body (POST only)</label>
+      <textarea id="custom-body" class="inp" placeholder="optional body…" style="min-height:56px"></textarea>
+      <button class="btn btn-cyan" onclick="doCustom()" style="width:100%;justify-content:center">Send Request</button>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- RESPONSE PANEL -->
+  <div class="response-wrap">
+    <div class="response-header">
+      <span><span class="loading" id="loading" style="display:none"></span>Last Response</span>
+      <span id="status-badge" class="status-badge" style="display:none"></span>
+    </div>
+    <div class="response-body" id="response-body">Waiting for request…</div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+const out    = document.getElementById('response-body');
+const badge  = document.getElementById('status-badge');
+const loader = document.getElementById('loading');
+
+function setLoading(on) {
+  loader.style.display = on ? 'inline-block' : 'none';
+}
+
+function showResult(status, text) {
+  setLoading(false);
+  badge.style.display = 'inline-block';
+  badge.textContent = status;
+  badge.className = 'status-badge ' +
+    (status < 300 ? 's2xx' : status < 400 ? 's3xx' : status < 500 ? 's4xx' : 's5xx');
+  out.textContent = text || '(empty body)';
+}
+
+async function doGet(path) {
+  setLoading(true);
+  out.textContent = 'Sending GET ' + path + ' …';
+  badge.style.display = 'none';
+  try {
+    const r = await fetch(path);
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+
+async function doPost() {
+  const name = document.getElementById('post-filename').value.trim() || 'upload.txt';
+  const fileEl = document.getElementById('post-file');
+  let body;
+  if (fileEl.files.length > 0) {
+    body = fileEl.files[0];
+  } else {
+    body = document.getElementById('post-body').value;
+  }
+  setLoading(true);
+  out.textContent = 'Sending POST /uploads?filename=' + name + ' …';
+  badge.style.display = 'none';
+  try {
+    const r = await fetch('/uploads?filename=' + encodeURIComponent(name), {
+      method: 'POST', body: body
+    });
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+
+async function doDelete() {
+  const path = document.getElementById('delete-path').value.trim();
+  if (!path) return;
+  setLoading(true);
+  out.textContent = 'Sending DELETE ' + path + ' …';
+  badge.style.display = 'none';
+  try {
+    const r = await fetch(path, { method: 'DELETE' });
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+
+async function doCustom() {
+  const method = document.getElementById('custom-method').value;
+  const path   = document.getElementById('custom-path').value.trim() || '/';
+  const body   = document.getElementById('custom-body').value;
+  setLoading(true);
+  out.textContent = 'Sending ' + method + ' ' + path + ' …';
+  badge.style.display = 'none';
+  try {
+    const opts = { method };
+    if (method === 'POST' && body) opts.body = body;
+    const r = await fetch(path, opts);
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+
+async function doPost405() {
+  setLoading(true);
+  out.textContent = 'Sending POST to read-only path (expect 405)…';
+  badge.style.display = 'none';
+  try {
+    const r = await fetch('/readonly/info.txt', { method: 'POST', body: 'test' });
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+
+async function doPost413() {
+  setLoading(true);
+  out.textContent = 'Sending oversized POST (expect 413)…';
+  badge.style.display = 'none';
+  try {
+    const big = 'X'.repeat(1024 * 1024 * 11); // 11MB > 10M limit
+    const r = await fetch('/uploads', { method: 'POST', body: big });
+    const t = await r.text();
+    showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
+  } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
+}
+</script>
+</body>
+</html>

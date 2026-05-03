@@ -1,5 +1,13 @@
 #include "response.hpp" 
 
+bool isDirectory(const std::string &path)
+{
+    struct stat s;
+    if (stat(path.c_str(), &s) == 0)
+        return S_ISDIR(s.st_mode);
+    return false;
+}
+
 Response::Response() :
     status_code(200),
     status_message("OK")
@@ -99,23 +107,33 @@ Response build_response(const HttpRequest& req,
 {
     Response res;
     (void)config;
-    std::string path = location.root + req.path;
-    std::cout << location.root << "    " << req.path << std::endl;
+    std::string path;
     if (req.path == "/")
+        path = location.root + "/index.html";
+    else
+        path = location.root + req.path;
+    std::cout << "===>" << path << std::endl;
+    if (isDirectory(path) == true)
     {
-        res.setStatusCode(200);
-            std::ifstream file("index.html");
-            std::string body((std::istreambuf_iterator<char>(file)),
-                          std::istreambuf_iterator<char>());
-            res.addHeader("content-type", res.getMediaType("html"));
-            res.setBody(body);
-            return res;
+        res.setStatusCode(404);
+        std::ifstream file("./www/html/errors/404.html");
+        std::string body((std::istreambuf_iterator<char>(file)),
+                      std::istreambuf_iterator<char>());
+        res.addHeader("content-type", res.getMediaType(getExtension(path)));
+        res.setBody(body);
+        return res;
     }
     // =======================
     // 1. GET METHOD
     // =======================
     if (req.method == "GET")
     {
+        if (!location.isMethodAllowed(req.method))
+        {
+            res.setStatusCode(405);
+            res.setBody("Method Not Allowed");
+            return res;
+        }
         std::ifstream file(path.c_str());
         if (!file.is_open())
         {
@@ -123,7 +141,7 @@ Response build_response(const HttpRequest& req,
             std::ifstream file("./www/html/errors/404.html");
             std::string body((std::istreambuf_iterator<char>(file)),
                           std::istreambuf_iterator<char>());
-            res.addHeader("content-type", res.getMediaType("html"));
+            res.addHeader("content-type", res.getMediaType(getExtension(path)));
             res.setBody(body);
             return res;
         }
@@ -132,7 +150,7 @@ Response build_response(const HttpRequest& req,
                           std::istreambuf_iterator<char>());
 
         res.setStatusCode(200);
-        res.addHeader("content-type", res.getMediaType("html"));
+        res.addHeader("content-type", res.getMediaType(getExtension(path)));
         res.setBody(body);
         return res;
     }
@@ -143,6 +161,12 @@ Response build_response(const HttpRequest& req,
     else if (req.method == "POST")
     {
         // simulate saving body to file
+        if (!location.isMethodAllowed(req.method))
+        {
+            res.setStatusCode(405);
+            res.setBody("Method Not Allowed");
+            return res;
+        }
         std::ofstream file(path.c_str(), std::ios::app);
         if (!file.is_open())
         {
@@ -163,6 +187,12 @@ Response build_response(const HttpRequest& req,
     // =======================
     else if (req.method == "DELETE")
     {
+        if (!location.isMethodAllowed(req.method))
+        {
+            res.setStatusCode(405);
+            res.setBody("Method Not Allowed");
+            return res;
+        }
         if (std::remove(path.c_str()) != 0)
         {
             res.setStatusCode(404);
