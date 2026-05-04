@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>413 — Payload Too Large</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#020408;--cyan:#00f5ff;--purple:#b94fff;--green:#00ff88;
+  --red:#ff2d55;--border:rgba(0,245,255,.15);--text:#c8d8e8;
+  --accent:var(--cyan);
+}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'Rajdhani',sans-serif;
+  min-height:100vh;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+
+/* BG */
+.bg-canvas{position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0,245,255,.06) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 50% at 20% 20%, rgba(185,79,255,.05) 0%,transparent 60%),
+    #020408;
+}
+.grid{position:fixed;inset:0;z-index:0;
+  background-image:linear-gradient(rgba(0,245,255,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,245,255,.04) 1px,transparent 1px);
+  background-size:60px 60px;animation:gridMove 20s linear infinite;
+}
+@keyframes gridMove{from{transform:translateY(0)}to{transform:translateY(60px)}}
+
+/* PARTICLES */
+.particles{position:fixed;inset:0;z-index:0;overflow:hidden;}
+.particle{
+  position:absolute;border-radius:50%;
+  animation:float linear infinite;opacity:0;
+}
+@keyframes float{
+  0%{opacity:0;transform:translateY(110vh) scale(0)}
+  10%{opacity:1}
+  90%{opacity:1}
+  100%{opacity:0;transform:translateY(-10vh) scale(1)}
+}
+
+/* MAIN */
+.error-wrap{
+  position:relative;z-index:1;
+  text-align:center;padding:2rem;
+  animation:appear .8s ease both;
+}
+@keyframes appear{from{opacity:0;transform:translateY(40px)}to{opacity:1;transform:translateY(0)}}
+
+/* BIG NUMBER */
+.code-3d{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(8rem,22vw,16rem);
+  font-weight:900;line-height:1;
+  letter-spacing:-.04em;
+  position:relative;display:inline-block;
+  transform-style:preserve-3d;
+  animation:tilt 6s ease-in-out infinite;
+}
+@keyframes tilt{
+  0%,100%{transform:perspective(600px) rotateX(0) rotateY(-5deg)}
+  50%{transform:perspective(600px) rotateX(4deg) rotateY(5deg)}
+}
+.code-3d .front-text{
+  background:linear-gradient(135deg,#fff 0%,var(--accent) 60%,var(--purple) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 40px var(--accent));
+}
+.code-3d .shadow-text{
+  position:absolute;top:6px;left:6px;
+  font-family:'Orbitron',monospace;
+  font-size:clamp(8rem,22vw,16rem);
+  font-weight:900;line-height:1;
+  -webkit-text-fill-color:transparent;
+  -webkit-text-stroke:1px rgba(0,245,255,.2);
+  z-index:-1;
+}
+
+/* SCAN LINE */
+.scanline{
+  position:absolute;top:0;left:-10%;right:-10%;height:3px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:scan 3s ease-in-out infinite;
+  opacity:.6;
+}
+@keyframes scan{
+  0%{top:0;opacity:0}
+  10%{opacity:.6}
+  90%{opacity:.6}
+  100%{top:100%;opacity:0}
+}
+
+/* TEXT */
+.glitch-label{
+  font-family:'Orbitron',monospace;
+  font-size:.85rem;letter-spacing:.25em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:.5rem;
+  animation:glitch 4s ease infinite;
+}
+@keyframes glitch{
+  0%,95%,100%{clip-path:none;transform:none}
+  96%{clip-path:inset(10% 0 85% 0);transform:translate(-3px)}
+  97%{clip-path:inset(60% 0 20% 0);transform:translate(3px)}
+  98%{clip-path:inset(40% 0 50% 0);transform:translate(-2px)}
+  99%{clip-path:none;transform:none}
+}
+.error-title{
+  font-family:'Orbitron',monospace;
+  font-size:clamp(1.2rem,3vw,2rem);
+  font-weight:700;color:#fff;margin-bottom:.8rem;
+}
+.error-desc{
+  font-size:1.05rem;color:rgba(200,216,232,.55);
+  max-width:420px;margin:0 auto 2.5rem;line-height:1.7;
+  font-weight:300;
+}
+
+/* DIVIDER */
+.divider{
+  width:80px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  margin:.8rem auto 1.5rem;
+}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:.5rem;
+  padding:.75rem 1.8rem;border-radius:.4rem;
+  font-family:'Rajdhani',sans-serif;font-size:.95rem;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  text-decoration:none;cursor:pointer;transition:.3s;
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--accent),var(--purple));
+  color:#000;border:none;box-shadow:0 0 30px rgba(0,245,255,.2);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(0,245,255,.35)}
+.btn-ghost{
+  background:transparent;border:1px solid var(--border);color:var(--text);
+  backdrop-filter:blur(8px);
+}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent);transform:translateY(-2px)}
+
+/* STATUS LINE */
+.status-line{
+  margin-top:3rem;
+  display:flex;align-items:center;justify-content:center;gap:2rem;flex-wrap:wrap;
+  font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(200,216,232,.3);
+  border-top:1px solid rgba(0,245,255,.07);
+  padding-top:2rem;
+}
+.status-line span{display:flex;align-items:center;gap:.4rem}
+.dot{width:5px;height:5px;border-radius:50%;background:var(--green);
+     box-shadow:0 0 6px var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+</style>
+</head>
+<body>
+<div class="bg-canvas"></div>
+<div class="grid"></div>
+<div class="particles" id="particles"></div>
+
+<div class="error-wrap">
+  <div class="glitch-label">Error Code · 413</div>
+
+  <div class="code-3d">
+    <div class="scanline"></div>
+    <span class="shadow-text">413</span>
+    <span class="front-text">413</span>
+  </div>
+
+  <div class="divider"></div>
+  <div class="error-title">Payload Too Large</div>
+  <div class="error-desc">
+    The request you sent is too large for this server to process.
+  Please reduce the size of your upload and try again.
+  </div>
+
+  <div class="btn-row">
+    <a href="/" class="btn btn-primary">⬡ Return Home</a>
+    <a href="javascript:history.back()" class="btn btn-ghost">← Go Back</a>
+  </div>
+
+  <div class="status-line">
+    <span><span class="dot"></span> Server Online</span>
+    <span>WebServ / 1.0</span>
+    <span>HTTP 413</span>
+  </div>
+</div>
+
+<script>
+// Spawn particles
+const P = document.getElementById('particles');
+const colors = ['#00f5ff','#b94fff','#00ff88'];
+for(let i=0;i<30;i++){
+  const d = document.createElement('div');
+  d.className='particle';
+  const s = Math.random()*4+2;
+  d.style.cssText=`
+    width:${s}px;height:${s}px;
+    left:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*3)]};
+    animation-duration:${Math.random()*12+8}s;
+    animation-delay:${Math.random()*-15}s;
+    box-shadow:0 0 ${s*3}px currentColor;
+  `;
+  P.appendChild(d);
+}
+</script>
+</body>
+</html>

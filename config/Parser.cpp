@@ -164,7 +164,7 @@ size_t parse_size(const std::string& value)
     unsigned long long size = std::strtoull(num_part.c_str(), NULL, 10);
     if (size > 10240 && (m > 1024)) { 
         std::cerr << "Error: client_max_body_size is too large!" << std::endl;
-        exit(1);
+        return -1;
     }
     return static_cast<size_t>(size * m);
 }

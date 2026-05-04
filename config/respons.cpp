@@ -106,26 +106,58 @@ Response build_response(const HttpRequest& req,
                         const LocationConfig& location)
 {
     Response res;
-    (void)config;
     std::string path;
     if (req.path == "/")
-        path = location.root + "/index.html";
+    {
+        for (size_t i = 0; i < config.index.size();i++)
+        {
+            std::string candidate = location.root + config.index[i];
+            std::ifstream test(candidate.c_str());
+            if (test.is_open())
+            {
+                path = candidate;
+                break;
+            }
+        }
+        if (path.empty())
+        {
+            if (location.autoindex)
+            {
+                return generate_autoindex(location.root);
+            }
+            res.setStatusCode(404);
+            std::ifstream file("./www/html/errors/404.html");
+            std::string body((std::istreambuf_iterator<char>(file)),
+                          std::istreambuf_iterator<char>());
+            res.addHeader("content-type", res.getMediaType("html"));
+            res.setBody(body);
+            return res;
+        }
+    }
     else
         path = location.root + req.path;
-    std::cout << "===>" << path << std::endl;
-    if (isDirectory(path) == true)
+    if (isDirectory(path))
     {
-        res.setStatusCode(404);
-        std::ifstream file("./www/html/errors/404.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-                      std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType(getExtension(path)));
-        res.setBody(body);
-        return res;
+        for (size_t i = 0; i < location.index.size(); i++)
+        {
+            std::string candidate = path + "/" + location.index[i];
+            std::ifstream test(candidate.c_str());
+            if (test.is_open())
+            {
+                path = candidate;
+                break;
+            }
+        }
+        if (isDirectory(path))
+        {
+            if (location.autoindex)
+                return generate_autoindex(path);
+
+            res.setStatusCode(403);
+            res.setBody("Forbidden");
+            return res;
+        }
     }
-    // =======================
-    // 1. GET METHOD
-    // =======================
     if (req.method == "GET")
     {
         if (!location.isMethodAllowed(req.method))
@@ -154,37 +186,38 @@ Response build_response(const HttpRequest& req,
         res.setBody(body);
         return res;
     }
-
-    // =======================
-    // 2. POST METHOD
-    // =======================
     else if (req.method == "POST")
     {
-        // simulate saving body to file
         if (!location.isMethodAllowed(req.method))
         {
-            res.setStatusCode(405);
-            res.setBody("Method Not Allowed");
-            return res;
-        }
-        std::ofstream file(path.c_str(), std::ios::app);
-        if (!file.is_open())
-        {
-            res.setStatusCode(500);
-            res.setBody("Internal Server Error");
-            return res;
+            return build_page_error(405);   
         }
 
-        file << req.body; // body from request
+        std::string filename;
+        std::string query = req.query; // or however you access it
+        std::string key = "filename=";
+        size_t pos = query.find(key);
+        if (pos != std::string::npos)
+            filename = query.substr(pos + key.size());
+
+        if (filename.empty())
+            filename = "upload.txt";
+
+        std::string upload_path = location.upload_store + "/" + filename;
+        std::cout << "==> Writing to: " << upload_path << std::endl;
+
+        std::ofstream file(upload_path.c_str(), std::ios::trunc);
+        if (!file.is_open())
+        {
+            return build_page_error(500); 
+        }
+
+        file << req.body;
 
         res.setStatusCode(201);
         res.setBody("Created");
         return res;
     }
-
-    // =======================
-    // 3. DELETE METHOD
-    // =======================
     else if (req.method == "DELETE")
     {
         if (!location.isMethodAllowed(req.method))
@@ -195,31 +228,22 @@ Response build_response(const HttpRequest& req,
         }
         if (std::remove(path.c_str()) != 0)
         {
-            res.setStatusCode(404);
-            res.setBody("File Not Found");
-            return res;
+            return build_page_error(404);
         }
 
         res.setStatusCode(200);
         res.setBody("Deleted");
         return res;
     }
-
-    // =======================
-    // 4. METHOD NOT ALLOWED
-    // =======================
-    res.setStatusCode(405);
-    res.setBody("Method Not Allowed");
-    return res;
+    return build_page_error(405);
 }
-
 
 Response build_page_error(const int code)
 {
     Response res;
     if (code == 400)
     {
-        std::ifstream file("../page_error/404.html");
+        std::ifstream file("./www/html/errors/400.html");
         std::string body((std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>());
         res.addHeader("content-type", res.getMediaType("html"));
@@ -227,7 +251,7 @@ Response build_page_error(const int code)
     }
     if (code == 405)
     {
-        std::ifstream file("../page_error/404.html");
+        std::ifstream file("./www/html/errors/405.html");
         std::string body((std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>());
         res.addHeader("content-type", res.getMediaType("html"));
@@ -235,7 +259,15 @@ Response build_page_error(const int code)
     }
     if (code == 505)
     {
-        std::ifstream file("../page_error/504.html");
+        std::ifstream file("./www/html/errors/505.html");
+        std::string body((std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
+        res.addHeader("content-type", res.getMediaType("html"));
+        res.setBody(body);
+    }
+    if (code == 413)
+    {
+        std::ifstream file("./www/html/errors/413.html");
         std::string body((std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>());
         res.addHeader("content-type", res.getMediaType("html"));
@@ -243,5 +275,51 @@ Response build_page_error(const int code)
     }
     res.setStatusCode(code);
     res.addHeader("Connection", "close");
+    return res;
+}
+std::vector<std::string> list_files(const std::string& path)
+{
+    std::vector<std::string> files;
+
+    DIR *dir = opendir(path.c_str());
+    if (!dir)
+        return files;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name(entry->d_name);
+
+        if (name == "." || name == "..")
+            continue;
+
+        files.push_back(name);
+    }
+
+    closedir(dir);
+    return files;
+}
+Response generate_autoindex(const std::string& dir)
+{
+    Response res;
+
+    std::vector<std::string> files = list_files(dir);
+
+    std::string body;
+    body += "<html><head><title>Index</title></head><body>";
+    body += "<h1>Index of " + dir + "</h1>";
+    body += "<a href=\"../\">../</a><br>";
+
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        body += "<a href=\"" + files[i] + "\">" + files[i] + "</a><br>";
+    }
+
+    body += "</body></html>";
+
+    res.setStatusCode(200);
+    res.addHeader("Content-Type", "text/html");
+    res.setBody(body);
+
     return res;
 }

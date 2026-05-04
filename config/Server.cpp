@@ -141,12 +141,14 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
     char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
     int bytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
-    if (bytes <= 0) {
+    if (bytes <= 0)
+    {
         disconnect_client(fds, i);
         return;
     }
-    clients[fd].append_data(std::string(buffer, bytes));
-    if (clients[fd].getErrorCode() != 0) {
+    clients[fd].append_data(std::string(buffer, bytes),configs[client_config_index[fd]]);
+    if (clients[fd].getErrorCode() != 0)
+    {
         Response response = build_page_error(clients[fd].getErrorCode());
         std::string final = response.toString();
         send(fd, final.c_str(), final.size(), 0);
@@ -160,15 +162,29 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
     const ServerConfig&  config = configs[client_config_index[fd]];
 
     const LocationConfig* location = NULL;
-    for (size_t j = 0; j < config.locations.size(); j++) {
-        if (req.path.find(config.locations[j].path) == 0) {
+    size_t match = 0;
+    for (size_t j = 0; j < config.locations.size(); j++)
+    {
+        const std::string& loc_path = config.locations[j].path;
+        if (req.path == loc_path)
+        {
             location = &config.locations[j];
             break;
         }
+        if (req.path.find(loc_path) == 0)
+        {
+            bool loc = (loc_path == "/" ||req.path[loc_path.size()] == '/');
+            if (loc && loc_path.size() > match) {
+                location = &config.locations[j];
+                match = loc_path.size();
+            }
+        }
     }
-    if (!location) {
-        std::string err = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-        send(fd, err.c_str(), err.size(), 0);
+    if (!location)
+    {
+        Response response = build_page_error(clients[fd].getErrorCode());
+        std::string final = response.toString();
+        send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fds, i);
         return;
     }

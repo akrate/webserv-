@@ -10,9 +10,9 @@ public:
     Client();
     std::string raw_request;
     HttpRequest request;
-    void append_data(const std::string& data);
+    void append_data(const std::string& data, const ServerConfig& conf);
     bool is_complete() const;
-    void parse_request();
+    void parse_request(const ServerConfig& conf);
     const HttpRequest& getRequest() const;
     int getErrorCode() const;
     //////////////////////////////////////////oussama

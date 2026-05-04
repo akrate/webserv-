@@ -235,13 +235,13 @@ created by dashboard</textarea>
       <div style="display:grid;grid-template-columns:110px 1fr;gap:.5rem;margin-bottom:.6rem">
         <div>
           <label class="lbl">Method</label>
-          <select id="custom-method" class="inp" style="margin-bottom:0">
-            <option>GET</option><option>POST</option><option>DELETE</option>
+          <select id="custom-method" class="inp" style="margin-bottom:0" onchange="updateDefaultPath(this)">
+            <option>GET</option><option>POST</option><option selected>DELETE</option>
           </select>
         </div>
         <div>
           <label class="lbl">Path</label>
-          <input id="custom-path" class="inp" style="margin-bottom:0" type="text" value="/"/>
+          <input id="custom-path" class="inp" style="margin-bottom:0" type="text" value="/uploads/"/>
         </div>
       </div>
       <label class="lbl">Body (POST only)</label>
@@ -249,9 +249,8 @@ created by dashboard</textarea>
       <button class="btn btn-cyan" onclick="doCustom()" style="width:100%;justify-content:center">Send Request</button>
     </div>
 
-  </div><!-- /grid -->
+  </div>
 
-  <!-- RESPONSE PANEL -->
   <div class="response-wrap">
     <div class="response-header">
       <span><span class="loading" id="loading" style="display:none"></span>Last Response</span>
@@ -260,7 +259,7 @@ created by dashboard</textarea>
     <div class="response-body" id="response-body">Waiting for request…</div>
   </div>
 
-</div><!-- /page -->
+</div>
 
 <script>
 const out    = document.getElementById('response-body');
@@ -292,7 +291,10 @@ async function doGet(path) {
 }
 
 async function doPost() {
-  const name = document.getElementById('post-filename').value.trim() || 'upload.txt';
+  let name = document.getElementById('post-filename').value.trim() || 'upload.txt';
+  // Strip any leading "uploads/" prefix — the fetch path already targets /uploads
+  name = name.replace(/^uploads\//, '');
+
   const fileEl = document.getElementById('post-file');
   let body;
   if (fileEl.files.length > 0) {
@@ -363,6 +365,18 @@ async function doPost413() {
     showResult(r.status, 'HTTP ' + r.status + ' ' + r.statusText + '\n\n' + t);
   } catch(e) { setLoading(false); out.textContent = 'Error: ' + e.message; }
 }
+
+function updateDefaultPath(select) {
+  const path = document.getElementById('custom-path');
+  if (select.value === 'POST' || select.value === 'DELETE') {
+    path.value = '/uploads/';
+  } else {
+    path.value = '/';
+  }
+}
+
+// Set initial path based on default selected option (DELETE → /uploads/)
+updateDefaultPath(document.getElementById('custom-method'));
 </script>
 </body>
 </html>

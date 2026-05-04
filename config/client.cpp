@@ -20,13 +20,14 @@ bool Client::is_complete() const
 { 
     return request_complete; 
 }
-void Client::append_data(const std::string& data)
+void Client::append_data(const std::string& data, const ServerConfig& conf)
 {
     raw_request += data;
-    parse_request();
+    parse_request(conf);
 }
-void Client::parse_request()
+void Client::parse_request(const ServerConfig& conf)
 {
+    LocationConfig config;
     if(request_complete || error_code != 0)
         return;
     size_t pos = raw_request.find("\r\n\r\n");
@@ -62,6 +63,12 @@ void Client::parse_request()
                 return;
             }
             content_length = (size_t)val;
+            if(conf.client_max_body_size < content_length)
+            {
+                error_code = 413;
+                std::cout << "DUBUG: " << conf.client_max_body_size << "\n";
+                return;
+            }
         }
         if (request.headers.count("transfer-encoding") && request.headers["transfer-encoding"] == "chunked")
         {
