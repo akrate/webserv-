@@ -1,5 +1,4 @@
 #include "response.hpp" 
-
 bool isDirectory(const std::string &path)
 {
     struct stat s;
@@ -158,6 +157,10 @@ Response build_response(const HttpRequest& req,
             return res;
         }
     }
+    if (isCgi(path))
+    {
+        // return execute_cgi(req, path, location);
+    }
     if (req.method == "GET")
     {
         if (!location.isMethodAllowed(req.method))
@@ -244,6 +247,14 @@ Response build_page_error(const int code)
     if (code == 400)
     {
         std::ifstream file("./www/html/errors/400.html");
+        std::string body((std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
+        res.addHeader("content-type", res.getMediaType("html"));
+        res.setBody(body);
+    }
+    if (code == 500)
+    {
+        std::ifstream file("./www/html/errors/500.html");
         std::string body((std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>());
         res.addHeader("content-type", res.getMediaType("html"));

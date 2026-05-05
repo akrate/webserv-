@@ -5,7 +5,7 @@
 #include "client.hpp"
 #include <sys/stat.h>
 #include <dirent.h>
-
+#include <sys/wait.h>
 class Response
 {
     private:
@@ -22,6 +22,11 @@ class Response
         void setBody(const std::string& body_content);
         void addHeader(const std::string& key, const std::string& value);
         std::string getMediaType(const std::string& extencion);
+        Response execute_cgi(const HttpRequest& req, 
+                               const std::string& path, 
+                               const LocationConfig& location);
+        void parseCgiOutput(const std::string& cgi_output, Response& res);
+
 };
 Response build_response(const HttpRequest& req,
                            const ServerConfig& config,
@@ -29,4 +34,6 @@ Response build_response(const HttpRequest& req,
 Response build_page_error(const int code);
 Response generate_autoindex(const std::string& dir);
 std::vector<std::string> list_files(const std::string& path);
+bool isCgi(const std::string& path);
+
 #endif
