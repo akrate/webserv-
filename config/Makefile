@@ -11,6 +11,7 @@ SRCS = main.cpp \
 	   client.cpp \
 	   utils.cpp \
 	   respons.cpp \
+	   cgi.cpp
 
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 

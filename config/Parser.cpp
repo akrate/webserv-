@@ -317,6 +317,8 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
         {
             for(size_t i = 1; i < parts.size(); i++)
                 location.index.push_back(parts[i]);
+            std::cout << "\033[31mcgi==>""\033[0m"<< location.index.size() << std::endl;
+
         }
         else if(key == "methods")
         {

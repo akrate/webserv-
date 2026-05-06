@@ -86,9 +86,7 @@ class ServerConfig
         std::vector<std::string>    index;
         std::map<int, std::string>  error_pages;
         size_t                      client_max_body_size;
-        std::vector<LocationConfig> locations;
-
-        
+        std::vector<LocationConfig> locations;   
 };
 
 class HttpRequest

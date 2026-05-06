@@ -22,7 +22,7 @@ void Response::parseCgiOutput(const std::string& cgi_output, Response& res)
     {
         res.setStatusCode(200);
         res.headers["content-type"] = "text/html";
-        res.body = cgi_output;
+        res.setBody(cgi_output);
         return;
     }
     std::string header = cgi_output.substr(0, pos);
@@ -47,7 +47,7 @@ void Response::parseCgiOutput(const std::string& cgi_output, Response& res)
         else
             res.headers[key] = value;
     }
-    res.body = body;
+    res.setBody(body);
 }
 char **prepareEnv(const HttpRequest& req,const std::string& scriotpath)
 {
@@ -133,7 +133,22 @@ Response Response::execute_cgi(const HttpRequest& req,
         int status;
         close(pipe_out[0]);
         waitpid(pid,&status,0);
-        
+        if (WIFEXITED(status)) 
+        {
+            int exit_code = WEXITSTATUS(status);
+
+            if (exit_code != 0)
+            {
+                std::cerr << "CGI Error: Child exited with code " << exit_code << std::endl;
+                return build_page_error(502); 
+            }
+        }
+        else if (WIFSIGNALED(status))
+        {
+            std::cerr << "CGI Error: Child killed by signal " << WTERMSIG(status) << std::endl;
+            return build_page_error(500);
+        }
+        res.setBody(cgi_output);
     }
     return res;
 }

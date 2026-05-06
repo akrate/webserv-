@@ -106,19 +106,40 @@ Response build_response(const HttpRequest& req,
 {
     Response res;
     std::string path;
+    (void)config;
     if (req.path == "/")
     {
-        for (size_t i = 0; i < config.index.size();i++)
+        std::string root = location.root;
+        bool found = false;
+        if (!root.empty() && root[root.size() - 1] != '/')
+            root += "/";
+        // std::cout << red("path ==> ") << config.index.front() << std::endl;
+        for (size_t i = 0; i < location.index.size(); i++) 
         {
-            std::string candidate = location.root + config.index[i];
-            std::ifstream test(candidate.c_str());
-            if (test.is_open())
+            std::string candidate = root + location.index[i];
+
+            if (access(candidate.c_str(), R_OK) == 0) 
             {
                 path = candidate;
+                found = true;
                 break;
             }
         }
-        if (path.empty())
+        if (found == false)
+        {
+            for (size_t i = 0; i < config.index.size(); i++)
+            {
+                std::string candidate = path + config.index[i];
+                std::ifstream test(candidate.c_str());
+                if (test.is_open())
+                {
+                    path = candidate;
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (found == false)
         {
             if (location.autoindex)
             {
@@ -127,7 +148,7 @@ Response build_response(const HttpRequest& req,
             res.setStatusCode(404);
             std::ifstream file("./www/html/errors/404.html");
             std::string body((std::istreambuf_iterator<char>(file)),
-                          std::istreambuf_iterator<char>());
+            std::istreambuf_iterator<char>());
             res.addHeader("content-type", res.getMediaType("html"));
             res.setBody(body);
             return res;
@@ -157,10 +178,11 @@ Response build_response(const HttpRequest& req,
             return res;
         }
     }
-    // if (isCgi(path))
-    // {
-    //     // return execute_cgi(req, path, location);
-    // }
+    if (isCgi(path))
+    {
+        std::cout << "\033[31mcgi==>""\033[0m"<< path << std::endl;
+        return res.execute_cgi(req, path, location);
+    }
     if (req.method == "GET")
     {
         if (!location.isMethodAllowed(req.method))
