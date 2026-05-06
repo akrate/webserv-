@@ -66,7 +66,6 @@ void Client::parse_request(const ServerConfig& conf)
             if(conf.client_max_body_size < content_length)
             {
                 error_code = 413;
-                std::cout << "DUBUG: " << conf.client_max_body_size << "\n";
                 return;
             }
         }
@@ -137,8 +136,8 @@ void Client::parse_headers(const std::string& headers_part)
             continue;
         std::string key = line.substr(0, colon);
         std::string value = line.substr(colon + 1);
-        Utils::trim2(key);
-        Utils::trim2(value);
+        key = Utils::trim(key);
+        value = Utils::trim(value);
 
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
         request.headers[key] = value;

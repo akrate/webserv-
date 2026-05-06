@@ -157,10 +157,10 @@ Response build_response(const HttpRequest& req,
             return res;
         }
     }
-    if (isCgi(path))
-    {
-        // return execute_cgi(req, path, location);
-    }
+    // if (isCgi(path))
+    // {
+    //     // return execute_cgi(req, path, location);
+    // }
     if (req.method == "GET")
     {
         if (!location.isMethodAllowed(req.method))

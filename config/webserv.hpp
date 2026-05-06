@@ -108,6 +108,5 @@ namespace Utils
 	std::string trim(const std::string& str);
     std::vector<std::string> split(const std::string& str);
     std::string to_upper(const std::string& str);
-    void trim2(std::string& str);
 }
 #endif

@@ -11,15 +11,43 @@ bool isCgi(const std::string& path)
 }
 void Response::parseCgiOutput(const std::string& cgi_output, Response& res)
 {
-    size_t pos = cgi_output.find("\r\n");
-    if (pos == std::string::npos)
+    size_t pos = cgi_output.find("\r\n\r\n");
+    size_t pos_len = 4;
+    if(pos == std::string::npos)
     {
-        pos = cgi_output.find("\r\n\r\n");
+        pos = cgi_output.find("\n\n");
+        pos_len = 2;
     }
-    if (pos != std::string::npos)
+    if(pos == std::string::npos)
     {
-        
+        res.setStatusCode(200);
+        res.headers["content-type"] = "text/html";
+        res.body = cgi_output;
+        return;
     }
+    std::string header = cgi_output.substr(0, pos);
+    std::string body = cgi_output.substr(pos + pos_len);
+    std::istringstream ss(header);
+    std::string line;
+    while(std::getline(ss, line))
+    {
+        if(line.empty())
+            continue;;
+        line = Utils::trim(line);
+        size_t colon = line.find(':');
+        if(colon == std::string::npos)
+            continue;
+        std::string key = line.substr(0, colon);
+        std::string value = line.substr(colon + 1);
+        key = Utils::trim(key);
+        value = Utils::trim(value);
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        if(key == "status")
+            res.setStatusCode(atoi(value.c_str()));
+        else
+            res.headers[key] = value;
+    }
+    res.body = body;
 }
 char **prepareEnv(const HttpRequest& req,const std::string& scriotpath)
 {

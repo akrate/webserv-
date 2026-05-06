@@ -60,7 +60,7 @@ void Parser::validate_semicolons(const std::string& content)
         {
             std::cerr << "Error: missing ';' at line " 
                       << line_num << ": \"" << trimmed << "\"" << std::endl;
-            exit(1);
+            return;
         }
     }
 }
