@@ -17,6 +17,7 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
     remouve_comments(content);
     validate_brackets(content);
     validate_structure(content);
+    validate_global_scope(content);
     validate_semicolons(content);
     size_t pos = 0;
     while(pos < content.size())
@@ -36,6 +37,46 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
                 exit(1);
             }
     return configs;
+}
+void Parser::validate_global_scope(const std::string& content)
+{
+    size_t pos = 0;
+
+    while (pos < content.size())
+    {
+        while (pos < content.size() && std::isspace(content[pos]))
+            pos++;
+
+        if (pos >= content.size())
+            break;
+        if (content.compare(pos, 6, "server") != 0)
+        {
+            std::cerr << "Error: invalid directive in global scope" << std::endl;
+            exit(1);
+        }
+        size_t brace = content.find('{', pos);
+        if (brace == std::string::npos)
+        {
+            std::cerr << "Error: missing '{' after server" << std::endl;
+            exit(1);
+        }
+        int brackets = 1;
+        pos = brace + 1;
+        while (pos < content.size() && brackets > 0)
+        {
+            if (content[pos] == '{')
+                brackets++;
+            else if (content[pos] == '}')
+                brackets--;
+
+            pos++;
+        }
+        if (brackets != 0)
+        {
+            std::cerr << "Error: unclosed server block" << std::endl;
+            return;
+        }
+    }
 }
 void Parser::validate_semicolons(const std::string& content)
 {
@@ -60,7 +101,7 @@ void Parser::validate_semicolons(const std::string& content)
         {
             std::cerr << "Error: missing ';' at line " 
                       << line_num << ": \"" << trimmed << "\"" << std::endl;
-            return;
+            exit(1);
         }
     }
 }
@@ -207,6 +248,11 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
                     exit(1);
                 }
                 config.port = static_cast<int>(port);
+            }
+            if(parts.size() > 2)
+            {
+                std::cout << "ERROR\n";
+                exit(1);
             }
         }
         else if(key == "server_name")
@@ -374,6 +420,11 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
                 location.redirect_code = 301;
                 location.redirect_url  = parts[1];
             }
+        }
+        else
+        {
+            std::cout << "ERROR\n";
+            exit(1);
         }
 
     }
