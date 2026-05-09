@@ -82,7 +82,7 @@ class ServerConfig
         std::vector<std::string>    server_names;
         int                         port;
         std::string                 root;
-        std::string                 host;
+        std::string                 host;   
         std::vector<std::string>    index;
         std::map<int, std::string>  error_pages;
         size_t                      client_max_body_size;

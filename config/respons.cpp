@@ -35,6 +35,8 @@ std::string Response::getMessageBycode(int code) const
                     return "Internal Server Error";
                 case 505:
                     return "HTTP Version Not Supported";
+                case 502:
+                    return "Bad Gateway page";
                 default:
                     return "Internal Server Error";
             }
@@ -106,14 +108,30 @@ Response build_response(const HttpRequest& req,
 {
     Response res;
     std::string path;
-    (void)config;
+    // (void)config;
+   if (!location.redirect_url.empty())
+    {
+        int code = location.redirect_code;
+
+        if (code < 300 || code >= 400)
+            code = 301; 
+        res.setStatusCode(code);
+        res.addHeader("Location", location.redirect_url);
+        std::stringstream ss;
+        ss << code;
+        std::string codeStr = ss.str();
+        res.setBody("<html><body><h1>" + codeStr + " Redirect</h1>" +
+                    "<p>The document has moved <a href=\"" + location.redirect_url + "\">here</a>.</p>" +
+                    "</body></html>");
+        res.addHeader("Content-Type", "text/html");
+        return res;
+    }
     if (req.path == "/")
     {
         std::string root = location.root;
         bool found = false;
         if (!root.empty() && root[root.size() - 1] != '/')
             root += "/";
-        // std::cout << red("path ==> ") << config.index.front() << std::endl;
         for (size_t i = 0; i < location.index.size(); i++) 
         {
             std::string candidate = root + location.index[i];
@@ -301,6 +319,14 @@ Response build_page_error(const int code)
     if (code == 413)
     {
         std::ifstream file("./www/html/errors/413.html");
+        std::string body((std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
+        res.addHeader("content-type", res.getMediaType("html"));
+        res.setBody(body);
+    }
+     if (code == 502)
+    {
+        std::ifstream file("./www/html/errors/502.html");
         std::string body((std::istreambuf_iterator<char>(file)),
         std::istreambuf_iterator<char>());
         res.addHeader("content-type", res.getMediaType("html"));

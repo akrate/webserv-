@@ -300,6 +300,7 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
             line.erase(line.length() - 1);
 
         std::vector<std::string> parts = Utils::split(line);
+        int code;
         // for(size_t i = 0; i < parts.size(); i++)
         // {
         //     std::cout << "[" << parts[i] << "] ";
@@ -363,7 +364,7 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
         {
             if (parts.size() > 2)
             {
-                int code = std::atoi(parts[1].c_str());
+                code = std::atoi(parts[1].c_str());
                 if (code < 300 || code > 599) {
                     std::cerr << "Error: Invalid return code '" << code << "'" << std::endl;
                     exit(1);
@@ -373,7 +374,7 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
             }
             else if (parts.size() > 1)
             {
-                location.redirect_code = 301;
+                location.redirect_code = code;
                 location.redirect_url  = parts[1];
             }
         }
