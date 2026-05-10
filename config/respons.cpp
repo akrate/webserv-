@@ -108,7 +108,6 @@ Response build_response(const HttpRequest& req,
 {
     Response res;
     std::string path;
-    // (void)config;
    if (!location.redirect_url.empty())
     {
         int code = location.redirect_code;
@@ -126,6 +125,19 @@ Response build_response(const HttpRequest& req,
         res.addHeader("Content-Type", "text/html");
         return res;
     }
+    if (!location.isMethodAllowed(req.method))
+    {
+        res = build_page_error(405);
+        std::string allow;
+        for (int i = 0; i < location.allowed_methods.size();i++)
+        {
+            allow += location.allowed_methods[i];
+            if (i < location.allowed_methods.size() - 1)
+                allow += ", ";
+        }
+        res.addHeader("allow",allow);
+        return  res;
+    }
     if (req.path == "/")
     {
         std::string root = location.root;
@@ -135,7 +147,6 @@ Response build_response(const HttpRequest& req,
         for (size_t i = 0; i < location.index.size(); i++) 
         {
             std::string candidate = root + location.index[i];
-
             if (access(candidate.c_str(), R_OK) == 0) 
             {
                 path = candidate;
@@ -147,9 +158,8 @@ Response build_response(const HttpRequest& req,
         {
             for (size_t i = 0; i < config.index.size(); i++)
             {
-                std::string candidate = path + config.index[i];
-                std::ifstream test(candidate.c_str());
-                if (test.is_open())
+                std::string candidate = root + config.index[i];
+                if (access(candidate.c_str(), R_OK) == 0) 
                 {
                     path = candidate;
                     found = true;
@@ -163,13 +173,7 @@ Response build_response(const HttpRequest& req,
             {
                 return generate_autoindex(location.root);
             }
-            res.setStatusCode(404);
-            std::ifstream file("./www/html/errors/404.html");
-            std::string body((std::istreambuf_iterator<char>(file)),
-            std::istreambuf_iterator<char>());
-            res.addHeader("content-type", res.getMediaType("html"));
-            res.setBody(body);
-            return res;
+             return build_page_error(404);
         }
     }
     else
@@ -203,22 +207,10 @@ Response build_response(const HttpRequest& req,
     }
     if (req.method == "GET")
     {
-        if (!location.isMethodAllowed(req.method))
-        {
-            res.setStatusCode(405);
-            res.setBody("Method Not Allowed");
-            return res;
-        }
         std::ifstream file(path.c_str());
         if (!file.is_open())
         {
-            res.setStatusCode(404);
-            std::ifstream file("./www/html/errors/404.html");
-            std::string body((std::istreambuf_iterator<char>(file)),
-                          std::istreambuf_iterator<char>());
-            res.addHeader("content-type", res.getMediaType(getExtension(path)));
-            res.setBody(body);
-            return res;
+            return build_page_error(404);
         }
 
         std::string body((std::istreambuf_iterator<char>(file)),
@@ -231,11 +223,6 @@ Response build_response(const HttpRequest& req,
     }
     else if (req.method == "POST")
     {
-        if (!location.isMethodAllowed(req.method))
-        {
-            return build_page_error(405);   
-        }
-
         std::string filename;
         std::string query = req.query; // or however you access it
         std::string key = "filename=";
@@ -254,33 +241,55 @@ Response build_response(const HttpRequest& req,
         {
             return build_page_error(500); 
         }
-
         file << req.body;
-
         res.setStatusCode(201);
         res.setBody("Created");
         return res;
     }
     else if (req.method == "DELETE")
     {
-        if (!location.isMethodAllowed(req.method))
-        {
-            res.setStatusCode(405);
-            res.setBody("Method Not Allowed");
-            return res;
-        }
         if (std::remove(path.c_str()) != 0)
         {
             return build_page_error(404);
         }
-
         res.setStatusCode(200);
         res.setBody("Deleted");
         return res;
     }
-    return build_page_error(405);
+    return  build_page_error(404);
 }
 
+// Response build_page_error(int code)
+// {
+//     Response res;
+//     res.setStatusCode(code);
+//     res.addHeader("Content-Type", "text/html");
+
+//     std::string message;
+//     if (code == 400) message = "Bad Request";
+//     else if (code == 403) message = "Forbidden";
+//     else if (code == 404) message = "Not Found";
+//     else if (code == 405) message = "Method Not Allowed";
+//     else if (code == 500) message = "Internal Server Error";
+//     else message = "Error";
+
+//     std::string error_page_path = "./www/html/errors/" + to_string(code) + ".html";
+//     std::ifstream file(error_page_path.c_str());
+    
+//     if (file.is_open())
+//     {
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//                           std::istreambuf_iterator<char>());
+//         res.setBody(body);
+//     }
+//     else
+//     {
+//         res.setBody("<html><body><h1>" + to_string(code) + " " + message + "</h1>" +
+//                     "<p>We're sorry, but an error occurred.</p></body></html>");
+//     }
+    
+//     return res;
+// }
 Response build_page_error(const int code)
 {
     Response res;
