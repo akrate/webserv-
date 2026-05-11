@@ -2,8 +2,10 @@
 #define PARSER_HPP  
 
 #include "webserv.hpp"
+#include "ParserException.hpp"
 #include <vector>
 #include <algorithm>
+#include <limits>
 
 class Parser {
     public:

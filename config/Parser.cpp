@@ -6,14 +6,19 @@ Parser::Parser() {
 Parser::~Parser() {
 }
 
+static std::string to_str(int n)
+{
+    std::ostringstream oss;
+    oss << n;
+    return oss.str();
+}
+
 std::vector<ServerConfig> Parser::parse(const std::string& configFile)
 {
     std::vector<ServerConfig> configs;
     std::string content = read_File(configFile);
-    if (content.empty()) {
-        std::cerr << "Error: Failed to read config file: " << configFile << std::endl;
-        return configs;
-    }
+    if (content.empty())
+        throw ParserException("failed to read config file: " + configFile);
     remouve_comments(content);
     validate_brackets(content);
     validate_structure(content);
@@ -32,10 +37,7 @@ std::vector<ServerConfig> Parser::parse(const std::string& configFile)
     for(size_t i = 0; i < configs.size(); i++)
         for(size_t j = i + 1; j < configs.size(); j++)
             if(configs[i].port == configs[j].port && configs[i].host == configs[j].host)
-            {
-                std::cerr << "Error: duplicate port " << configs[i].port << std::endl;
-                exit(1);
-            }
+                throw ParserException("duplicate host:port " + configs[i].host + ":" + to_str(configs[i].port));
     return configs;
 }
 void Parser::validate_global_scope(const std::string& content)
@@ -50,16 +52,10 @@ void Parser::validate_global_scope(const std::string& content)
         if (pos >= content.size())
             break;
         if (content.compare(pos, 6, "server") != 0)
-        {
-            std::cerr << "Error: invalid directive in global scope" << std::endl;
-            exit(1);
-        }
+            throw ParserException("invalid directive in global scope");
         size_t brace = content.find('{', pos);
         if (brace == std::string::npos)
-        {
-            std::cerr << "Error: missing '{' after server" << std::endl;
-            exit(1);
-        }
+            throw ParserException("missing '{' after server");
         int brackets = 1;
         pos = brace + 1;
         while (pos < content.size() && brackets > 0)
@@ -72,10 +68,7 @@ void Parser::validate_global_scope(const std::string& content)
             pos++;
         }
         if (brackets != 0)
-        {
-            std::cerr << "Error: unclosed server block" << std::endl;
-            return;
-        }
+            throw ParserException("unclosed server block");
     }
 }
 void Parser::validate_semicolons(const std::string& content)
@@ -98,11 +91,7 @@ void Parser::validate_semicolons(const std::string& content)
         if (trimmed[trimmed.size()-1] == '}')
             continue;
         if (trimmed[trimmed.size()-1] != ';')
-        {
-            std::cerr << "Error: missing ';' at line " 
-                      << line_num << ": \"" << trimmed << "\"" << std::endl;
-            exit(1);
-        }
+            throw ParserException("missing ';' -> \"" + trimmed + "\"", line_num);
     }
 }
 void Parser::validate_brackets(const std::string& content)
@@ -119,18 +108,12 @@ void Parser::validate_brackets(const std::string& content)
         {
             count--;
             if(count < 0)
-            {
-                std::cerr << "Error: unexpected '}' at line " << line << std::endl;
-                exit(1);
-            }
+                throw ParserException("unexpected '}'", line);
         }
         
     }
     if(count != 0)
-    {
-        std::cerr << "Error: unclosed '{' in config file" << "\n";
-        exit(1);
-    }
+        throw ParserException("unclosed '{' in config file");
 }
 void Parser::validate_structure(const std::string& content)
 {
@@ -149,12 +132,7 @@ void Parser::validate_structure(const std::string& content)
         if(first_word == "server" || first_word == "location")
         {
             if(trimmed.find('{') == std::string::npos)
-            {
-                std::cerr << "Error: missing '{' after '"
-                          << trimmed << "' at line "
-                          << line_num << std::endl;
-                exit(1);
-            }
+                throw ParserException("missing '{' after '" + trimmed + "'", line_num);
         }
     }
 }
@@ -188,26 +166,42 @@ void Parser::remouve_comments(std::string& content)
 }
 size_t parse_size(const std::string& value)
 {
-    if (value.empty()) return 0;
-
-    size_t m = 1;
+    unsigned long long multiplier = 1;
+    if(!isdigit(value[0]))
+        throw ParserException("invalid argument");
     char unit = value[value.length() - 1];
     std::string num_part = value;
 
-    if (isalpha(unit))
+    if (std::isalpha(unit))
     {
         num_part = value.substr(0, value.length() - 1);
-        if (unit == 'M' || unit == 'm') m = 1024 * 1024;
-        else if (unit == 'K' || unit == 'k') m = 1024;
-        else if (unit == 'G' || unit == 'g') m = 1024 * 1024 * 1024;
-    }
 
-    unsigned long long size = std::strtoull(num_part.c_str(), NULL, 10);
-    if (size > 10240 && (m > 1024)) { 
-        std::cerr << "Error: client_max_body_size is too large!" << std::endl;
-        return -1;
+        if (unit == 'K' || unit == 'k')
+            multiplier = 1024;
+        else if (unit == 'M' || unit == 'm')
+            multiplier = 1024 * 1024;
+        else if (unit == 'G' || unit == 'g')
+            multiplier = 1024 * 1024 * 1024;
+        else
+            throw ParserException("unknown size unit");
     }
-    return static_cast<size_t>(size * m);
+    else
+    {
+        throw ParserException("invalid argument or unit");
+    }
+    unsigned long long size = std::strtoull(num_part.c_str(), NULL, 10);
+
+    if (size > std::numeric_limits<unsigned long long>::max() / multiplier)
+        throw ParserException("size overflow");
+
+    unsigned long long final_size = size * multiplier;
+
+    const unsigned long long MAX_BODY_SIZE = 1024 * 1024* 1024;
+
+    if (final_size > MAX_BODY_SIZE)
+        throw ParserException("client_max_body_size is too large");
+
+    return static_cast<size_t>(final_size);
 }
 ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
 {
@@ -215,7 +209,7 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
 
     size_t start = content.find('{', pos);
     if(start == std::string::npos)
-        return config;
+        throw ParserException("missing '{' in server block");
     std::string block = extarct_block(content, start);
     pos = start;
     size_t block_pos = 0;
@@ -241,19 +235,17 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
         std::string key = parts[0];
         if (key == "listen")
         {
-            if (parts.size() > 1) {
-                long port = std::atol(parts[1].c_str());
-                if (port < 1 || port > 65535) {
-                    std::cerr << "Error: Invalid port number '" << parts[1] << "' (must be 1-65535)" << std::endl;
-                    exit(1);
-                }
+            if (parts.size() == 2) {
+                char *end;
+                long port = std::strtol(parts[1].c_str(), &end, 10);
+                if(*end)
+                    throw ParserException("invalid port");
+                if (port < 1 || port > 65535)
+                    throw ParserException("invalid port number '" + parts[1] + "' (must be 1-65535)");
                 config.port = static_cast<int>(port);
             }
             if(parts.size() > 2)
-            {
-                std::cout << "ERROR\n";
-                exit(1);
-            }
+                throw ParserException("too many arguments for 'listen'");
         }
         else if(key == "server_name")
         {
@@ -267,8 +259,10 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
         }
         else if (key == "host")
         {
-            if(parts.size() > 1)
-                config.host = parts[1]; 
+            if(parts.size() == 2)
+                config.host = parts[1];
+            else
+                throw ParserException("too many arguments for 'host'");
         }
         else if(key == "index")
         {
@@ -285,10 +279,10 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
         }
         else if(key == "client_max_body_size")
         {
-            if(parts.size() > 1)
-            if (parts.size() > 1)
+            if (parts.size() == 2)
                 config.client_max_body_size = parse_size(parts[1]);
-            // std::cout << "Max body size: " << config.client_max_body_size << " bytes" << std::endl;
+            else
+                throw ParserException("client_max_body_size needs one argument");
         }
         else if(key == "location")
         {
@@ -313,6 +307,8 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t &pos)
                 config.locations.push_back(loc);
             }
         }
+        else
+            throw ParserException("unknown directive '" + key + "' in server block");
 
     }
     pos = start;
@@ -326,7 +322,7 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
     location.autoindex = false;
     size_t brace_start = content.find('{', pos);
     if (brace_start == std::string::npos)
-        return location;
+        throw ParserException("missing '{' in location block for path '" + path + "'");
     std::string block = extarct_block(content, brace_start);
     pos = brace_start;
 
