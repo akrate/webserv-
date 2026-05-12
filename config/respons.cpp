@@ -129,7 +129,7 @@ Response build_response(const HttpRequest& req,
     {
         res = build_page_error(405);
         std::string allow;
-        for (int i = 0; i < location.allowed_methods.size();i++)
+        for (size_t i = 0; i < location.allowed_methods.size();i++)
         {
             allow += location.allowed_methods[i];
             if (i < location.allowed_methods.size() - 1)
