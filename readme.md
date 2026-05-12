@@ -1,41 +1,52 @@
-# WebServer
+# webserv
 
-A lightweight, high-performance web server built for simplicity and speed.
+> 42 School — C++98 HTTP/1.1 server inspired by Nginx
 
 ---
 
 ## Table of Contents
 
+- [About](#about)
 - [Features](#features)
-- [Prerequisites](#prerequisites)
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Usage](#usage)
-- [API Reference](#api-reference)
+- [HTTP Methods](#http-methods)
+- [CGI Support](#cgi-support)
 - [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+- [Resources](#resources)
+
+---
+
+## About
+
+**webserv** is a project from the [42 School](https://42.fr) core curriculum. The goal is to build a fully functional HTTP/1.1 web server from scratch in **C++98**, without using any existing web server implementations. The server behaves similarly to Nginx — it reads a configuration file and handles client connections in a non-blocking, multiplexed manner using `poll()` (or equivalent).
 
 ---
 
 ## Features
 
-- Static file serving with MIME type detection
-- HTTP/1.1 and HTTP/2 support
-- SSL/TLS support via configurable certificates
-- Request routing with dynamic URL parameters
-- Middleware support (logging, authentication, compression)
-- Configurable request rate limiting
-- CORS headers management
-- Access and error logging
+- HTTP/1.1 compliant (RFC 7230–7235)
+- Non-blocking I/O with `poll()` for all socket operations
+- Nginx-style configuration file parsing
+- Multiple virtual servers on different ports/hosts
+- HTTP methods: `GET`, `POST`, `DELETE`
+- Static file serving with auto-index (directory listing)
+- Custom error pages
+- File upload handling
+- CGI execution (Python, PHP, etc.)
+- Configurable request body size limit
+- HTTP redirections
 
 ---
 
-## Prerequisites
+## Requirements
 
-- **Node.js** >= 18.x (or your runtime of choice)
-- **npm** >= 9.x
-- OpenSSL (for HTTPS support)
+- C++98 compatible compiler (`g++` or `clang++`)
+- `make`
+- UNIX-like OS (Linux / macOS)
+- Python 3 or PHP (optional, for CGI)
 
 ---
 
@@ -43,108 +54,132 @@ A lightweight, high-performance web server built for simplicity and speed.
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/webserver.git
-cd webserver
+git clone https://github.com/your-username/webserv.git
+cd webserv
 
-# Install dependencies
-npm install
+# Compile
+make
+```
+
+To clean build artifacts:
+
+```bash
+make clean    # Remove object files
+make fclean   # Remove object files and binary
+make re       # Full rebuild
 ```
 
 ---
 
 ## Configuration
 
-Create a `.env` file in the root directory or edit `config.json`:
+The server takes a `.conf` file as its argument. If none is provided, it falls back to `config/default.conf`.
 
-```env
-HOST=0.0.0.0
-PORT=8080
-SSL_ENABLED=false
-SSL_CERT=./certs/cert.pem
-SSL_KEY=./certs/key.pem
-LOG_LEVEL=info
-ROOT_DIR=./public
+```bash
+./webserv config/default.conf
 ```
 
-| Key          | Default       | Description                          |
-|--------------|---------------|--------------------------------------|
-| `HOST`       | `0.0.0.0`     | IP address to bind the server        |
-| `PORT`       | `8080`        | Port the server listens on           |
-| `SSL_ENABLED`| `false`       | Enable HTTPS                         |
-| `SSL_CERT`   | —             | Path to the SSL certificate file     |
-| `SSL_KEY`    | —             | Path to the SSL private key file     |
-| `LOG_LEVEL`  | `info`        | Logging verbosity (`debug`, `info`, `error`) |
-| `ROOT_DIR`   | `./public`    | Root directory for static files      |
+### Example configuration
+
+```nginx
+server {
+    listen       8080;
+    host         127.0.0.1;
+    server_name  localhost;
+
+    root         ./public/www;
+    index        index.html;
+
+    client_max_body_size 10M;
+
+    error_page 404 /errors/404.html;
+    error_page 500 /errors/500.html;
+
+    location / {
+        methods     GET POST;
+        autoindex   off;
+    }
+
+    location /upload {
+        methods     POST DELETE;
+        upload_dir  ./public/uploads;
+    }
+
+    location /cgi-bin {
+        methods     GET POST;
+        cgi_ext     .py  /usr/bin/python3;
+        cgi_ext     .php /usr/bin/php;
+    }
+
+    location /old-path {
+        return 301 /new-path;
+    }
+}
+```
+
+### Configuration directives
+
+| Directive               | Scope           | Description                                   |
+|-------------------------|-----------------|-----------------------------------------------|
+| `listen`                | server          | Port to listen on                             |
+| `host`                  | server          | IP address to bind                            |
+| `server_name`           | server          | Virtual host name                             |
+| `root`                  | server/location | Root directory for file serving               |
+| `index`                 | server/location | Default file to serve for directories         |
+| `client_max_body_size`  | server          | Max allowed request body size                 |
+| `error_page`            | server          | Custom error page per HTTP status code        |
+| `methods`               | location        | Allowed HTTP methods                          |
+| `autoindex`             | location        | Enable directory listing (`on`/`off`)         |
+| `upload_dir`            | location        | Directory where uploaded files are stored     |
+| `cgi_ext`               | location        | CGI extension and interpreter path            |
+| `return`                | location        | HTTP redirection (code + target URL)          |
 
 ---
 
 ## Usage
 
-### Start the server
-
 ```bash
-# Development (with auto-reload)
-npm run dev
+# Start with default config
+./webserv
 
-# Production
-npm start
+# Start with a custom config
+./webserv config/mysite.conf
 ```
 
-### Stop the server
-
-Press `Ctrl + C` in the terminal, or send a `SIGTERM` signal:
-
-```bash
-kill -SIGTERM <pid>
-```
-
-### Generate a self-signed SSL certificate (development only)
-
-```bash
-openssl req -x509 -newkey rsa:4096 -keyout certs/key.pem -out certs/cert.pem -days 365 -nodes
-```
+The server logs requests to stdout. Stop it with `Ctrl+C`.
 
 ---
 
-## API Reference
+## HTTP Methods
 
-### Health Check
+| Method   | Description                        |
+|----------|------------------------------------|
+| `GET`    | Retrieve a resource or static file |
+| `POST`   | Submit data or upload files        |
+| `DELETE` | Delete a specified resource        |
 
-```
-GET /health
-```
+---
 
-**Response:**
+## CGI Support
 
-```json
-{
-  "status": "ok",
-  "uptime": 3600
-}
-```
+Place CGI scripts in a directory covered by a `location` block with `cgi_ext` defined. The server forks a child process, passes the request environment via standard CGI variables, and returns the script's stdout as the HTTP response.
 
-### Static Files
+**Supported CGI variables include:**
 
-Files placed in the `ROOT_DIR` directory are served automatically:
+- `REQUEST_METHOD`
+- `QUERY_STRING`
+- `CONTENT_TYPE`
+- `CONTENT_LENGTH`
+- `SCRIPT_FILENAME`
+- `PATH_INFO`
+- `SERVER_NAME` / `SERVER_PORT`
 
-```
-GET /index.html     → ./public/index.html
-GET /assets/app.js  → ./public/assets/app.js
-```
+Example CGI script (`hello.py`):
 
-### Custom Routes
-
-Define routes in `routes/index.js`:
-
-```js
-router.get('/hello', (req, res) => {
-  res.send('Hello, World!');
-});
-
-router.post('/data', (req, res) => {
-  const body = req.body;
-  res.json({ received: body });
-});
+```python
+#!/usr/bin/env python3
+print("Content-Type: text/html\r\n\r\n")
+print("<h1>Hello from CGI!</h1>")
 ```
 
 ---
@@ -152,40 +187,36 @@ router.post('/data', (req, res) => {
 ## Project Structure
 
 ```
-webserver/
-├── certs/              # SSL certificates (not committed)
+webserv/
 ├── config/
-│   └── config.json     # Server configuration
-├── public/             # Static files root
-├── routes/
-│   └── index.js        # Route definitions
-├── middleware/
-│   ├── logger.js       # Request logging
-│   ├── auth.js         # Authentication middleware
-│   └── cors.js         # CORS headers
-├── logs/
-│   ├── access.log      # HTTP access log
-│   └── error.log       # Error log
-├── server.js           # Entry point
-├── .env                # Environment variables (not committed)
-├── package.json
+│   └── default.conf        # Default configuration file
+├── public/
+│   ├── www/                # Static files root
+│   │   └── index.html
+│   ├── uploads/            # Upload destination
+│   └── errors/             # Custom error pages
+├── cgi-bin/                # CGI scripts
+├── srcs/
+│   ├── main.cpp
+│   ├── Server.cpp/.hpp     # Socket, poll loop
+│   ├── Config.cpp/.hpp     # Configuration parser
+│   ├── Request.cpp/.hpp    # HTTP request parser
+│   ├── Response.cpp/.hpp   # HTTP response builder
+│   └── CGI.cpp/.hpp        # CGI handler
+├── includes/
+├── Makefile
 └── README.md
 ```
 
 ---
 
-## Contributing
+## Resources
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
-3. Commit your changes: `git commit -m "Add my feature"`
-4. Push to the branch: `git push origin feature/my-feature`
-5. Open a pull request
-
-Please follow the existing code style and include tests for new features.
+- [Beej's Guide to Network Programming](https://beej.us/guide/bgnet/html/)
+- [HTTP/1.1 RFC 7230](https://datatracker.ietf.org/doc/html/rfc7230)
+- [Building a simple HTTP server from scratch](https://medium.com/from-the-scratch/http-server-what-do-you-need-to-know-to-build-a-simple-http-server-from-scratch-d1ef8945e4fa)
+- [Nginx configuration docs](https://nginx.org/en/docs/)
 
 ---
 
-## License
-
-This project is licensed under the [MIT License](LICENSE).
+*Made with ☕ at 42 School.*
