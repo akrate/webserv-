@@ -401,32 +401,54 @@ LocationConfig Parser::parse_location_block(const std::string& content, size_t& 
         }
         else if (key == "return")
         {
-            if (parts.size() > 2)
+            if (parts.size() < 2)
+                throw ParserException("return directive requires arguments");
+            if(parts.size() > 3)
+                throw ParserException("too many arguments in return directive");
+            if(parts.size() == 2)
             {
-                int code = std::atoi(parts[1].c_str());
-                if (code < 300 || code > 599) {
-                    std::cerr << "Error: Invalid return code '" << code << "'" << std::endl;
-                    exit(1);
+                if(isNumber(parts[1]))
+                    location.redirect_code = parseReturnCode(parts[1]);
+                else
+                {
+                    location.redirect_code = 302;
+                    location.redirect_url = parts[1];
                 }
-                location.redirect_code = code;
-                location.redirect_url  = parts[2];
             }
-            else if (parts.size() > 1)
+            if(parts.size() == 3)
             {
-                location.redirect_code = 301;
-                location.redirect_url  = parts[1];
+                location.redirect_code = parseReturnCode(parts[1]);
+                location.redirect_url = parts[2];
             }
         }
         else
-        {
-            std::cout << "ERROR\n";
-            exit(1);
-        }
+            throw ParserException("unknown directive '" + key + "' in location block");
 
     }
     return location;
 }
+bool Parser::isNumber(const std::string& str)
+{
+    if (str.empty())
+        return false;
 
+    for (size_t i = 0; i < str.length(); i++)
+    {
+        if (!std::isdigit(str[i]))
+            return false;
+    }
+    return true;
+}
+
+int Parser::parseReturnCode(const std::string& value)
+{
+    if (!isNumber(value))
+        throw ParserException("invalid return code '" + value + "'");
+    int code = std::atoi(value.c_str());
+    if (code < 100 || code > 599)
+        throw ParserException("invalid return code '" + value + "'");
+    return code;
+}
 std::string Parser::extarct_block(const std::string& content, size_t& pos)
 {
     if(pos >= content.length() || content[pos] != '{')

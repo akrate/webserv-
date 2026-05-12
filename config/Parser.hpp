@@ -22,6 +22,8 @@ class Parser {
         static void validate_semicolons(const std::string& content);
         static void validate_structure(const std::string& content);
         static void validate_global_scope(const std::string& content);
+        static int parseReturnCode(const std::string& value);
+        static bool isNumber(const std::string& str);
 
 };
 
