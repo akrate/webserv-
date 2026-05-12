@@ -1,5 +1,4 @@
-#include "Server.hpp"
-#include <iostream>
+#include "../include/Server.hpp"
 
 bool hasConfExtension(const std::string& file)
 {

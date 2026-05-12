@@ -1,4 +1,6 @@
-#include "webserv.hpp"
+#include "../include/LocationConfig.hpp"
+#include "../include/ServerConfig.hpp"
+
 LocationConfig::LocationConfig()
     : autoindex(false),
     redirect_code(0),

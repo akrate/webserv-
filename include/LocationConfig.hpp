@@ -1,6 +1,5 @@
-#ifndef WEBSERV_HPP
-#define WEBSERV_HPP
-
+#ifndef LOCATIONCONFIG_HPP
+#define LOCATIONCONFIG_HPP
 
 
 #include <string>
@@ -10,12 +9,12 @@
 #include <sstream>
 #include <algorithm>
 #include <map>
-// #include "response.hpp"
 
 
 class LocationConfig 
 {
-    public:                          
+    public:       
+        LocationConfig();                   
         std::string              path;
         std::string              root;
         std::vector<std::string> index;
@@ -76,37 +75,5 @@ class LocationConfig
       
 };
 
-class ServerConfig
-{
-    public:                          
-        std::vector<std::string>    server_names;
-        int                         port;
-        std::string                 root;
-        std::string                 host;
-        std::vector<std::string>    index;
-        std::map<int, std::string>  error_pages;
-        size_t                      client_max_body_size;
-        std::vector<LocationConfig> locations;
 
-        
-};
-
-class HttpRequest
-{
-    public:
-        std::string method;
-        std::string path;
-        std::string version;
-        std::string body;
-        std::string query;
-	    std::map<std::string, std::string> headers;
-
-};
-
-namespace Utils
-{
-	std::string trim(const std::string& str);
-    std::vector<std::string> split(const std::string& str);
-    std::string to_upper(const std::string& str);
-}
 #endif

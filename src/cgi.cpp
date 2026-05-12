@@ -1,4 +1,4 @@
-#include "response.hpp"
+#include "../include/response.hpp"
 
 bool isCgi(const std::string& path)
 {

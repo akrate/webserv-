@@ -5,12 +5,13 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++98 -Iinclude
 
 OBJ_DIR = obj
 
-SRCS = main.cpp \
-       Server.cpp \
-	   Parser.cpp \
-	   client.cpp \
-	   utils.cpp \
-	   respons.cpp \
+SRCS = src/main.cpp \
+       src/Server.cpp \
+       src/Parser.cpp \
+       src/client.cpp \
+       src/utils.cpp \
+       src/respons.cpp \
+       src/function.cpp
 
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 
@@ -21,7 +22,7 @@ $(NAME): $(OBJS)
 	@echo "✓ $(NAME) compiled successfully"
 
 $(OBJ_DIR)/%.o: %.cpp
-	@mkdir -p $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
