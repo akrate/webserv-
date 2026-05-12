@@ -196,7 +196,7 @@ webserv/
 │   ├── uploads/            # Upload destination
 │   └── errors/             # Custom error pages
 ├── cgi-bin/                # CGI scripts
-├── srcs/
+├── src/
 │   ├── main.cpp
 │   ├── Server.cpp/.hpp     # Socket, poll loop
 │   ├── Config.cpp/.hpp     # Configuration parser
