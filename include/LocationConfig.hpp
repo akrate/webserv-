@@ -24,6 +24,7 @@ class LocationConfig
         std::string              redirect_url;
         std::vector<std::string> cgi_extensions;
         std::string              cgi_path;
+        std::map<int, std::string>  error_pages;
         std::string              upload_store;
         bool                     allow_upload;
         size_t                   client_max_body_size;
