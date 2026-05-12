@@ -1,5 +1,16 @@
 #include "../include/response.hpp"
 
+void freeEnv(char **env)
+{
+    if (env == NULL)
+        return;
+
+    for (int i = 0; env[i] != NULL; i++)
+    {
+        delete[] env[i];
+    }
+    delete[] env;
+}
 bool isCgi(const std::string& path)
 {
     size_t dot = path.find_last_of('.');
@@ -22,7 +33,7 @@ void Response::parseCgiOutput(const std::string& cgi_output, Response& res)
     {
         res.setStatusCode(200);
         res.headers["content-type"] = "text/html";
-        res.body = cgi_output;
+        res.setBody(cgi_output);
         return;
     }
     std::string header = cgi_output.substr(0, pos);
@@ -47,7 +58,7 @@ void Response::parseCgiOutput(const std::string& cgi_output, Response& res)
         else
             res.headers[key] = value;
     }
-    res.body = body;
+    res.setBody(body);
 }
 char **prepareEnv(const HttpRequest& req,const std::string& scriotpath)
 {
@@ -90,12 +101,14 @@ Response Response::execute_cgi(const HttpRequest& req,
     int pipe_out[2];
 
     if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
-    {
         return build_page_error(500);
-    }
+    char **env = prepareEnv(req, path);
     pid_t pid = fork();
     if (pid == -1)
     {
+        close(pipe_in[0]); close(pipe_in[1]);
+        close(pipe_out[0]); close(pipe_out[1]);
+        freeEnv(env);
         return build_page_error(500);
     }
     if (pid == 0)
@@ -103,37 +116,43 @@ Response Response::execute_cgi(const HttpRequest& req,
         dup2(pipe_in[0], STDIN_FILENO);
         dup2(pipe_out[1], STDOUT_FILENO);
 
-        close(pipe_in[1]);
-        close(pipe_out[0]);
-        char **env = prepareEnv(req,path);
+        close(pipe_in[0]); close(pipe_in[1]);
+        close(pipe_out[0]); close(pipe_out[1]);
+
         char *args[] = {
             (char *)location.cgi_path.c_str(),
-            (char *)path.c_str()
+            (char *)path.c_str(),
+            NULL
         };
-        execve(args[0],args,env);
+        execve(args[0], args, env);
         exit(1);
     } 
-    else if (pid > 0)
+    else
     {
         close(pipe_in[0]);
         close(pipe_out[1]);
 
         if (req.method == "POST")
-        {
-            write (pipe_in[1], req.body.c_str(),req.body.size());
-        }
+            write(pipe_in[1], req.body.c_str(), req.body.size());
         close(pipe_in[1]);
         char buffer[4096];
         std::string cgi_output;
         int bytes_read;
         while ((bytes_read = read(pipe_out[0], buffer, sizeof(buffer))) > 0)
-        {
-            cgi_output.append(buffer,bytes_read);
-        }
-        int status;
-        close(pipe_out[0]);
-        waitpid(pid,&status,0);
+            cgi_output.append(buffer, bytes_read);
         
+        close(pipe_out[0]);
+        int status;
+        waitpid(pid, &status, 0);
+        freeEnv(env);
+        if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
+            std::cerr << "CGI Error: Child exited with code " << WEXITSTATUS(status) << std::endl;
+            return build_page_error(502);
+        }
+        else if (WIFSIGNALED(status)) {
+            return build_page_error(500);
+        }
+        parseCgiOutput(cgi_output, res);
     }
     return res;
 }
