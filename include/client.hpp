@@ -2,7 +2,8 @@
 #define CLIENT_HPP
 
 #include "webserv.hpp"
-// #include "response.hpp"
+#include "LocationConfig.hpp"
+#include "ServerConfig.hpp"
 class Response;
 class Client
 {

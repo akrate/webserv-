@@ -1,4 +1,4 @@
-#include "webserv.hpp"
+#include "../include/webserv.hpp"
 namespace Utils
 {
     std::string trim(const std::string& str)

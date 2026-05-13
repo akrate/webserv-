@@ -2,8 +2,12 @@
 #define PARSER_HPP  
 
 #include "webserv.hpp"
+#include "LocationConfig.hpp"
+#include "ServerConfig.hpp"
+#include "ParserException.hpp"
 #include <vector>
 #include <algorithm>
+#include <limits>
 
 class Parser {
     public:
@@ -11,14 +15,18 @@ class Parser {
         ~Parser();
         static std::vector<ServerConfig> parse(const std::string& configFile);
     private:
-        static std::string read_File(const std::string& path);
-        static void remouve_comments(std::string& content);
+        static std::string read_file(const std::string& path);
+        static void remove_comments(std::string& content);
         static ServerConfig parse_server_block(const std::string& content, size_t& pos);
-        static std::string extarct_block(const std::string& content, size_t& pos);
+        static std::string extract_block(const std::string& content, size_t& pos);
         static LocationConfig parse_location_block(const std::string& content, size_t& pos, std::string& path);
         static void validate_brackets(const std::string& content);
         static void validate_semicolons(const std::string& content);
         static void validate_structure(const std::string& content);
+        static void validate_global_scope(const std::string& content);
+        static int parseReturnCode(const std::string& value);
+        static bool isNumber(const std::string& str);
+        static size_t parse_size(const std::string& value);
 
 };
 

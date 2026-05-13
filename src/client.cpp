@@ -1,4 +1,4 @@
-#include "client.hpp"
+#include "../include/client.hpp"
 
 Client::Client()
     : request_complete(false),
@@ -231,24 +231,15 @@ void Client::parse_chunked_body()
 //     return false;
 // }
 
+
 std::string getExtension(const std::string& path)
 {
-    size_t last_slash = path.find_last_of("/\\");
-    size_t last_dot = path.find_last_of('.');
-
-    // If dot is part of a directory name (before the last slash), it's not an extension
-    if (last_dot == std::string::npos || (last_slash != std::string::npos && last_dot < last_slash))
+    size_t point = path.find_last_of('.');
+    if (point == std::string::npos || point == path.length() - 1)
     {
         return "";
     }
-    
-    // Handle hidden files (like .htaccess) or terminal dots
-    if (last_dot == path.length() - 1 || last_dot == last_slash + 1)
-    {
-        return "";
-    }
-
-    return path.substr(last_dot + 1);
+    return path.substr(point + 1);
 }
 
 // Response handleRequest(const HttpRequest& req)
