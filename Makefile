@@ -12,7 +12,9 @@ SRCS = src/main.cpp \
        src/utils.cpp \
 	   src/cgi.cpp \
        src/respons.cpp \
-       src/function.cpp
+	   src/ParseServer.cpp \
+	   src/ParseLocation.cpp \
+	   src/ParseUtils.cpp
 
 OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
 

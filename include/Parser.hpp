@@ -26,6 +26,7 @@ class Parser {
         static void validate_global_scope(const std::string& content);
         static int parseReturnCode(const std::string& value);
         static bool isNumber(const std::string& str);
+        static size_t parse_size(const std::string& value);
 
 };
 
