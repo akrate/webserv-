@@ -86,6 +86,10 @@ ServerConfig Parser::parse_server_block(const std::string& content, size_t& pos)
             if (parts.size() < 3)
                 throw ParserException("'error_page' requires at least one code and a URI");
             std::string uri = parts[parts.size() - 1];
+            if (uri.empty() || uri[0] != '/')//oussama
+            {
+                throw ParserException("invalid URI '" + uri + "' in error_page. Must start with '/'");
+            }
             for (size_t i = 1; i < parts.size() - 1; i++)
             {
                 if (!isNumber(parts[i]))

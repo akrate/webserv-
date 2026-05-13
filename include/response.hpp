@@ -31,7 +31,9 @@ class Response
 Response build_response(const HttpRequest& req,
                            const ServerConfig& config,
                            const LocationConfig& location);
-Response build_page_error(const int code);
+Response build_page_error(const int code, const ServerConfig& config, const LocationConfig& location);
+// Response build_page_error(const int code);
+
 Response generate_autoindex(const std::string& dir);
 std::vector<std::string> list_files(const std::string& path);
 bool isCgi(const std::string& path);

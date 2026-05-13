@@ -17,31 +17,25 @@ Response::Response() :
 }
 
 std::string Response::getMessageBycode(int code) const
-        {
-            switch (code)
-            {
-                case 200:
-                    return "OK";
-                case 201:
-                    return "Created";
-                case 400:
-                    return "Bad Request";
-                case 403:
-                    return "Forbidden";
-                case 404:
-                    return "Not Found";
-                case 405:
-                    return "Method Not Allowed";
-                case 500:
-                    return "Internal Server Error";
-                case 505:
-                    return "HTTP Version Not Supported";
-                case 502:
-                    return "Bad Gateway page";
-                default:
-                    return "Internal Server Error";
-            }
-        }
+{
+    switch (code)
+    {
+        case 200: return "OK";
+        case 201: return "Created";
+        case 204: return "No Content"; // مهمة فـ DELETE إلا نجح وما كاين body
+        case 301: return "Moved Permanently"; // إلا درتي Redirection
+        case 400: return "Bad Request";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 405: return "Method Not Allowed";
+        case 413: return "Content Too Large"; // مهمة للـ client_max_body_size
+        case 500: return "Internal Server Error";
+        case 502: return "Bad Gateway";
+        case 504: return "Gateway Timeout"; // مهمة للـ CGI Timeout اللي قاديتي
+        case 505: return "HTTP Version Not Supported";
+        default:  return "Internal Server Error"; // اختيار آمن
+    }
+}
 std::string Response::toString() const
 {
     std::stringstream ss;
@@ -291,104 +285,159 @@ Response build_response(const HttpRequest& req,
     
 //     return res;
 // }
-Response build_page_error(const int code)
-{
-    Response res;
-    if (code == 400)
-    {
-        std::ifstream file("./www/html/errors/400.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-    if (code == 500)
-    {
-        std::ifstream file("./www/html/errors/500.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-    if (code == 405)
-    {
-        std::ifstream file("./www/html/errors/405.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-    if (code == 505)
-    {
-        std::ifstream file("./www/html/errors/505.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-    if (code == 413)
-    {
-        std::ifstream file("./www/html/errors/413.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-     if (code == 502)
-    {
-        std::ifstream file("./www/html/errors/502.html");
-        std::string body((std::istreambuf_iterator<char>(file)),
-        std::istreambuf_iterator<char>());
-        res.addHeader("content-type", res.getMediaType("html"));
-        res.setBody(body);
-    }
-    res.setStatusCode(code);
-    res.addHeader("Connection", "close");
-    return res;
-}
-std::vector<std::string> list_files(const std::string& path)
-{
-    std::vector<std::string> files;
+// Response build_page_error(const int code, const ServerConfig& config, const LocationConfig& location)
 
-    DIR *dir = opendir(path.c_str());
-    if (!dir)
-        return files;
+// Response build_page_error(const int code)
+// {
+//     Response res;
+//     if (code == 400)
+//     {
+//         std::ifstream file("./www/html/errors/400.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//     if (code == 500)
+//     {
+//         std::ifstream file("./www/html/errors/500.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//     if (code == 405)
+//     {
+//         std::ifstream file("./www/html/errors/405.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//     if (code == 505)
+//     {
+//         std::ifstream file("./www/html/errors/505.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//     if (code == 413)
+//     {
+//         std::ifstream file("./www/html/errors/413.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//      if (code == 502)
+//     {
+//         std::ifstream file("./www/html/errors/502.html");
+//         std::string body((std::istreambuf_iterator<char>(file)),
+//         std::istreambuf_iterator<char>());
+//         res.addHeader("content-type", res.getMediaType("html"));
+//         res.setBody(body);
+//     }
+//     res.setStatusCode(code);
+//     res.addHeader("Connection", "close");
+//     return res;
+// }
+// std::vector<std::string> list_files(const std::string& path)
+// {
+//     std::vector<std::string> files;
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL)
-    {
-        std::string name(entry->d_name);
+//     DIR *dir = opendir(path.c_str());
+//     if (!dir)
+//         return files;
 
-        if (name == "." || name == "..")
-            continue;
+//     struct dirent *entry;
+//     while ((entry = readdir(dir)) != NULL)
+//     {
+//         std::string name(entry->d_name);
 
-        files.push_back(name);
-    }
+//         if (name == "." || name == "..")
+//             continue;
 
-    closedir(dir);
-    return files;
-}
-Response generate_autoindex(const std::string& dir)
-{
-    Response res;
+//         files.push_back(name);
+//     }
 
-    std::vector<std::string> files = list_files(dir);
+//     closedir(dir);
+//     return files;
+// }
+// Response generate_autoindex(const std::string& dir)
+// {
+//     Response res;
 
-    std::string body;
-    body += "<html><head><title>Index</title></head><body>";
-    body += "<h1>Index of " + dir + "</h1>";
-    body += "<a href=\"../\">../</a><br>";
+//     std::vector<std::string> files = list_files(dir);
 
-    for (size_t i = 0; i < files.size(); i++)
-    {
-        body += "<a href=\"" + files[i] + "\">" + files[i] + "</a><br>";
-    }
+//     std::string body;
+//     body += "<html><head><title>Index</title></head><body>";
+//     body += "<h1>Index of " + dir + "</h1>";
+//     body += "<a href=\"../\">../</a><br>";
 
-    body += "</body></html>";
+//     for (size_t i = 0; i < files.size(); i++)
+//     {
+//         body += "<a href=\"" + files[i] + "\">" + files[i] + "</a><br>";
+//     }
 
-    res.setStatusCode(200);
-    res.addHeader("Content-Type", "text/html");
-    res.setBody(body);
+//     body += "</body></html>";
 
-    return res;
-}
+//     res.setStatusCode(200);
+//     res.addHeader("Content-Type", "text/html");
+//     res.setBody(body);
+
+//     return res;
+// }
+// std::string to_str(int n) {
+//     std::stringstream ss;
+//     ss << n;
+//     return ss.str();
+// }
+// Response build_page_error(int code, const ServerConfig& config, const LocationConfig& location)
+// {
+//     Response res;
+//     std::string body;
+//     std::string path = "";
+
+//     // 1. الأولوية: قلب فـ الـ Map ديال الـ Server Config
+//     std::map<int, std::string>::const_iterator it = config.error_pages.find(code);
+    
+//     if (it != config.error_pages.end()) {
+//         // كنستعملو الـ root ديال الـ location إلا كان موجود، وإلا الـ root ديال الـ server
+//         std::string current_root = (!location.root.empty()) ? location.root : config.root;
+//         path = current_root + it->second;
+//     }
+//     // 2. إلا مالقيناش فـ الـ Config، جرب الـ Default Path ديالك
+//     else {
+//         path = "./www/html/errors/" + to_str(code) + ".html";
+//     }
+
+//     // 3. محاولة قراءة الملف
+//     std::ifstream file(path.c_str());
+//     if (file.is_open()) {
+//         std::stringstream buffer;
+//         buffer << file.rdbuf();
+//         body = buffer.str();
+//         file.close();
+//     }
+//     // 4. الحل الأخير (The Generator) - إلا كاع داكشي لفوق فشل
+//     else {
+//         std::stringstream ss;
+//         ss << "<html><head><title>" << code << " " << res.getStatusMsg(code) << "</title></head>"
+//            << "<body style='font-family: Arial, sans-serif; text-align: center; margin-top: 50px;'>"
+//            << "<h1>" << code << " " << res.getMessageBycode(code) << "</h1>"
+//            << "<hr style='width: 50%;'>"
+//            << "<p><i>webserv/1.0</i></p>"
+//            << "</body></html>";
+//         body = ss.str();
+//     }
+
+//     // تعمير الـ Response بالمعلومات
+//     res.setStatusCode(code);
+//     res.setBody(body);
+//     res.addHeader("Content-Type", "text/html");
+//     res.addHeader("Content-Length", to_str(body.length()));
+//     res.addHeader("Connection", "close");
+
+//     return res;
+// }
