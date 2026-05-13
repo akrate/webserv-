@@ -102,83 +102,95 @@ std::string Response::getMediaType(const std::string& extension)
     
     return "application/octet-stream";
 }
-
+static std::string to_string(size_t n)
+{
+    std::ostringstream oss;
+    oss << n;
+    return oss.str();
+}
+ 
 Response build_response(const HttpRequest& req,
                         const ServerConfig& config,
                         const LocationConfig& location)
 {
     Response res;
     std::string path;
-   if (!location.redirect_url.empty())
+ 
+    if (!location.redirect_url.empty())
     {
         int code = location.redirect_code;
-
         if (code < 300 || code >= 400)
-            code = 301; 
+            code = 301;
+ 
         res.setStatusCode(code);
         res.addHeader("Location", location.redirect_url);
-        std::stringstream ss;
-        ss << code;
-        std::string codeStr = ss.str();
-        res.setBody("<html><body><h1>" + codeStr + " Redirect</h1>" +
-                    "<p>The document has moved <a href=\"" + location.redirect_url + "\">here</a>.</p>" +
-                    "</body></html>");
-        res.addHeader("Content-Type", "text/html");
+ 
+        std::string body = "<html><body><h1>" + to_string(code) + " Redirect</h1>"
+                         + "<p>The document has moved <a href=\""
+                         + location.redirect_url + "\">here</a>.</p></body></html>";
+        res.setBody(body);
+        res.addHeader("Content-Type",   "text/html");
+        res.addHeader("Content-Length", to_string(body.size()));
         return res;
     }
+ 
     if (!location.isMethodAllowed(req.method))
     {
         res = build_page_error(405);
         std::string allow;
-        for (size_t i = 0; i < location.allowed_methods.size();i++)
+        for (size_t i = 0; i < location.allowed_methods.size(); i++)
         {
             allow += location.allowed_methods[i];
             if (i < location.allowed_methods.size() - 1)
                 allow += ", ";
         }
-        res.addHeader("allow",allow);
-        return  res;
+        res.addHeader("Allow", allow);
+        return res;
     }
+ 
     if (req.path == "/")
     {
         std::string root = location.root;
         bool found = false;
+ 
         if (!root.empty() && root[root.size() - 1] != '/')
             root += "/";
-        for (size_t i = 0; i < location.index.size(); i++) 
+ 
+        for (size_t i = 0; i < location.index.size(); i++)
         {
             std::string candidate = root + location.index[i];
-            if (access(candidate.c_str(), R_OK) == 0) 
+            if (access(candidate.c_str(), R_OK) == 0)
             {
-                path = candidate;
+                path  = candidate;
                 found = true;
                 break;
             }
         }
-        if (found == false)
+ 
+        if (!found)
         {
             for (size_t i = 0; i < config.index.size(); i++)
             {
                 std::string candidate = root + config.index[i];
-                if (access(candidate.c_str(), R_OK) == 0) 
+                if (access(candidate.c_str(), R_OK) == 0)
                 {
-                    path = candidate;
+                    path  = candidate;
                     found = true;
                     break;
                 }
             }
         }
-        if (found == false)
+ 
+        if (!found)
         {
             if (location.autoindex)
-            {
                 return generate_autoindex(location.root);
-            }
-             return build_page_error(404);
+            return build_page_error(404);
         }
     }
     else
         path = location.root + req.path;
+ 
     if (isDirectory(path))
     {
         for (size_t i = 0; i < location.index.size(); i++)
@@ -191,75 +203,81 @@ Response build_response(const HttpRequest& req,
                 break;
             }
         }
+ 
         if (isDirectory(path))
         {
             if (location.autoindex)
                 return generate_autoindex(path);
-
+ 
+            std::string body = "Forbidden";
             res.setStatusCode(403);
-            res.setBody("Forbidden");
+            res.setBody(body);
+            res.addHeader("Content-Length", to_string(body.size()));
             return res;
         }
     }
+ 
     if (isCgi(path))
     {
-        std::cout << "\033[31mcgi==>""\033[0m"<< path << std::endl;
+        std::cout << "\033[31mcgi==>\033[0m" << path << std::endl;
         return res.execute_cgi(req, path, location);
     }
+ 
     if (req.method == "GET")
     {
         std::ifstream file(path.c_str());
         if (!file.is_open())
-        {
             return build_page_error(404);
-        }
-
+ 
         std::string body((std::istreambuf_iterator<char>(file)),
                           std::istreambuf_iterator<char>());
-
+ 
         res.setStatusCode(200);
-        res.addHeader("content-type", res.getMediaType(getExtension(path)));
+        res.addHeader("Content-Type",   res.getMediaType(getExtension(path)));
+        res.addHeader("Content-Length", to_string(body.size()));
         res.setBody(body);
         return res;
     }
     else if (req.method == "POST")
     {
         std::string filename;
-        std::string query = req.query; // or however you access it
         std::string key = "filename=";
-        size_t pos = query.find(key);
+        size_t pos = req.query.find(key);
         if (pos != std::string::npos)
-            filename = query.substr(pos + key.size());
-
+            filename = req.query.substr(pos + key.size());
         if (filename.empty())
             filename = "upload.txt";
-
+ 
         std::string upload_path = location.upload_store + "/" + filename;
         std::cout << "==> Writing to: " << upload_path << std::endl;
-
+ 
         std::ofstream file(upload_path.c_str(), std::ios::trunc);
         if (!file.is_open())
-        {
-            return build_page_error(500); 
-        }
+            return build_page_error(500);
+ 
         file << req.body;
+ 
+        std::string body = "Created";
         res.setStatusCode(201);
-        res.setBody("Created");
+        res.setBody(body);
+        res.addHeader("Content-Length", to_string(body.size()));
         return res;
     }
     else if (req.method == "DELETE")
     {
         if (std::remove(path.c_str()) != 0)
-        {
             return build_page_error(404);
-        }
+ 
+        std::string body = "Deleted";
         res.setStatusCode(200);
-        res.setBody("Deleted");
+        res.setBody(body);
+        res.addHeader("Content-Length", to_string(body.size()));
         return res;
     }
-    return  build_page_error(404);
+ 
+    return build_page_error(404);
 }
-
+ 
 // Response build_page_error(int code)
 // {
 //     Response res;
