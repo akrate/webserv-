@@ -9,7 +9,6 @@ SRCS = src/main.cpp \
        src/Server.cpp \
        src/Parser.cpp \
        src/client.cpp \
-       src/utils.cpp \
 	   src/cgi.cpp \
        src/respons.cpp \
 	   src/ParseServer.cpp \
