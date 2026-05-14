@@ -160,21 +160,22 @@ char **prepareEnv(const HttpRequest& req,const std::string& scriotpath)
 // }
 Response Response::execute_cgi(const HttpRequest& req,
                                const std::string& path,
-                               const LocationConfig& location)
+                               const LocationConfig& location,
+                                const ServerConfig& config)
 {
     Response res;
     int pipe_in[2];
     int pipe_out[2];
 
     if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1)
-        return build_page_error(500);
+        return build_page_error(500,config,location);
 
     char **env = prepareEnv(req, path);
     if (!env)
     {
         close(pipe_in[0]); close(pipe_in[1]);
         close(pipe_out[0]); close(pipe_out[1]);
-        return build_page_error(500);
+        return build_page_error(500,config,location);;
     }
 
     pid_t pid = fork();
@@ -183,7 +184,7 @@ Response Response::execute_cgi(const HttpRequest& req,
         close(pipe_in[0]); close(pipe_in[1]);
         close(pipe_out[0]); close(pipe_out[1]);
         freeEnv(env);
-        return build_page_error(500);
+        return build_page_error(500,config,location);
     }
 
     if (pid == 0)
@@ -277,16 +278,16 @@ Response Response::execute_cgi(const HttpRequest& req,
     if (timeout)
     {
         waitpid(pid, &status, 0);
-        return build_page_error(504);
+        return build_page_error(504,config,location);
     }
 
     waitpid(pid, &status, 0);
 
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-        return build_page_error(502);
+       return build_page_error(500,config,location);
 
     if (WIFSIGNALED(status))
-        return build_page_error(500);
+        return build_page_error(500,config,location);
 
     parseCgiOutput(output, res);
     return res;

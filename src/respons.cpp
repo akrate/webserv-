@@ -122,7 +122,7 @@ Response build_response(const HttpRequest& req,
     }
     if (!location.isMethodAllowed(req.method))
     {
-        res = build_page_error(405);
+        res = build_page_error(405,config,location);
         std::string allow;
         for (size_t i = 0; i < location.allowed_methods.size();i++)
         {
@@ -168,7 +168,7 @@ Response build_response(const HttpRequest& req,
             {
                 return generate_autoindex(location.root);
             }
-             return build_page_error(404);
+             return build_page_error(404,config,location);
         }
     }
     else
@@ -190,22 +190,21 @@ Response build_response(const HttpRequest& req,
             if (location.autoindex)
                 return generate_autoindex(path);
 
-            res.setStatusCode(403);
-            res.setBody("Forbidden");
-            return res;
+            
+            return build_page_error(403,config,location);
         }
     }
-    if (isCgi(path))
-    {
-        std::cout << "\033[31mcgi==>""\033[0m"<< path << std::endl;
-        return res.execute_cgi(req, path, location);
-    }
+    // if (isCgi(path))
+    // {
+    //     std::cout << "\033[31mcgi==>""\033[0m"<< path << std::endl;
+    //     return res.execute_cgi(req, path, location);
+    // }
     if (req.method == "GET")
     {
         std::ifstream file(path.c_str());
         if (!file.is_open())
         {
-            return build_page_error(404);
+            return build_page_error(404,config,location);
         }
 
         std::string body((std::istreambuf_iterator<char>(file)),
@@ -234,7 +233,7 @@ Response build_response(const HttpRequest& req,
         std::ofstream file(upload_path.c_str(), std::ios::trunc);
         if (!file.is_open())
         {
-            return build_page_error(500); 
+            return build_page_error(500,config,location); 
         }
         file << req.body;
         res.setStatusCode(201);
@@ -245,13 +244,13 @@ Response build_response(const HttpRequest& req,
     {
         if (std::remove(path.c_str()) != 0)
         {
-            return build_page_error(404);
+            return build_page_error(404,config,location);
         }
         res.setStatusCode(200);
         res.setBody("Deleted");
         return res;
     }
-    return  build_page_error(404);
+    return  build_page_error(404,config,location);
 }
 
 // Response build_page_error(int code)
@@ -342,102 +341,100 @@ Response build_response(const HttpRequest& req,
 //     res.addHeader("Connection", "close");
 //     return res;
 // }
-// std::vector<std::string> list_files(const std::string& path)
-// {
-//     std::vector<std::string> files;
+std::vector<std::string> list_files(const std::string& path)
+{
+    std::vector<std::string> files;
 
-//     DIR *dir = opendir(path.c_str());
-//     if (!dir)
-//         return files;
+    DIR *dir = opendir(path.c_str());
+    if (!dir)
+        return files;
 
-//     struct dirent *entry;
-//     while ((entry = readdir(dir)) != NULL)
-//     {
-//         std::string name(entry->d_name);
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL)
+    {
+        std::string name(entry->d_name);
 
-//         if (name == "." || name == "..")
-//             continue;
+        if (name == "." || name == "..")
+            continue;
 
-//         files.push_back(name);
-//     }
+        files.push_back(name);
+    }
 
-//     closedir(dir);
-//     return files;
-// }
-// Response generate_autoindex(const std::string& dir)
-// {
-//     Response res;
+    closedir(dir);
+    return files;
+}
+Response generate_autoindex(const std::string& dir)
+{
+    Response res;
 
-//     std::vector<std::string> files = list_files(dir);
+    std::vector<std::string> files = list_files(dir);
 
-//     std::string body;
-//     body += "<html><head><title>Index</title></head><body>";
-//     body += "<h1>Index of " + dir + "</h1>";
-//     body += "<a href=\"../\">../</a><br>";
+    std::string body;
+    body += "<html><head><title>Index</title></head><body>";
+    body += "<h1>Index of " + dir + "</h1>";
+    body += "<a href=\"../\">../</a><br>";
 
-//     for (size_t i = 0; i < files.size(); i++)
-//     {
-//         body += "<a href=\"" + files[i] + "\">" + files[i] + "</a><br>";
-//     }
+    for (size_t i = 0; i < files.size(); i++)
+    {
+        body += "<a href=\"" + files[i] + "\">" + files[i] + "</a><br>";
+    }
 
-//     body += "</body></html>";
+    body += "</body></html>";
 
-//     res.setStatusCode(200);
-//     res.addHeader("Content-Type", "text/html");
-//     res.setBody(body);
+    res.setStatusCode(200);
+    res.addHeader("Content-Type", "text/html");
+    res.setBody(body);
 
-//     return res;
-// }
-// std::string to_str(int n) {
-//     std::stringstream ss;
-//     ss << n;
-//     return ss.str();
-// }
-// Response build_page_error(int code, const ServerConfig& config, const LocationConfig& location)
-// {
-//     Response res;
-//     std::string body;
-//     std::string path = "";
+    return res;
+}
+std::string to_str(int n) {
+    std::stringstream ss;
+    ss << n;
+    return ss.str();
+}
+Response build_page_error(int code, const ServerConfig& config, const LocationConfig& location)
+{
+    Response res;
+    std::string body;
+    std::string path = "";
+    std::string uri = "";
 
-//     // 1. الأولوية: قلب فـ الـ Map ديال الـ Server Config
-//     std::map<int, std::string>::const_iterator it = config.error_pages.find(code);
-    
-//     if (it != config.error_pages.end()) {
-//         // كنستعملو الـ root ديال الـ location إلا كان موجود، وإلا الـ root ديال الـ server
-//         std::string current_root = (!location.root.empty()) ? location.root : config.root;
-//         path = current_root + it->second;
-//     }
-//     // 2. إلا مالقيناش فـ الـ Config، جرب الـ Default Path ديالك
-//     else {
-//         path = "./www/html/errors/" + to_str(code) + ".html";
-//     }
+    std::map<int, std::string>::const_iterator it_loc = location.error_pages.find(code);
+    if (it_loc != location.error_pages.end()) {
+        uri = it_loc->second;
+    }
+    else {
+        std::map<int, std::string>::const_iterator it_serv = config.error_pages.find(code);
+        if (it_serv != config.error_pages.end()) {
+            uri = it_serv->second;
+        }
+    }
+    if (!uri.empty()) {
+        std::string current_root = (!location.root.empty()) ? location.root : config.root;
+        path = current_root + uri;
+        std::cout << "\033[32m" << path << "\033[0m" << std::endl;
+        std::ifstream file(path.c_str());
+        if (file.is_open()) {
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            body = buffer.str();
+            file.close();
+        }
+    }
+    if (body.empty()) {
+        std::stringstream ss;
+        ss << "<html><head><title>" << code << " " << res.getMessageBycode(code) << "</title></head>"
+           << "<body style='font-family: Arial, sans-serif; text-align: center; margin-top: 50px;'>"
+           << "<h1>" << code << " " << res.getMessageBycode(code) << "</h1>"
+           << "<hr style='width: 50%;'>"
+           << "<p><i>webserv/1.0</i></p>"
+           << "</body></html>";
+        body = ss.str();
+    }
+    res.setStatusCode(code);
+    res.setBody(body);
+    res.addHeader("Content-Type", "text/html");
+    res.addHeader("Connection", "close");
 
-//     // 3. محاولة قراءة الملف
-//     std::ifstream file(path.c_str());
-//     if (file.is_open()) {
-//         std::stringstream buffer;
-//         buffer << file.rdbuf();
-//         body = buffer.str();
-//         file.close();
-//     }
-//     // 4. الحل الأخير (The Generator) - إلا كاع داكشي لفوق فشل
-//     else {
-//         std::stringstream ss;
-//         ss << "<html><head><title>" << code << " " << res.getStatusMsg(code) << "</title></head>"
-//            << "<body style='font-family: Arial, sans-serif; text-align: center; margin-top: 50px;'>"
-//            << "<h1>" << code << " " << res.getMessageBycode(code) << "</h1>"
-//            << "<hr style='width: 50%;'>"
-//            << "<p><i>webserv/1.0</i></p>"
-//            << "</body></html>";
-//         body = ss.str();
-//     }
-
-//     // تعمير الـ Response بالمعلومات
-//     res.setStatusCode(code);
-//     res.setBody(body);
-//     res.addHeader("Content-Type", "text/html");
-//     res.addHeader("Content-Length", to_str(body.length()));
-//     res.addHeader("Connection", "close");
-
-//     return res;
-// }
+    return res;
+}

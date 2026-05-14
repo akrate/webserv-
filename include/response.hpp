@@ -13,18 +13,19 @@ class Response
         std::string status_message; 
         std::string body;
         std::map<std::string, std::string> headers;
-        std::string getMessageBycode(int code) const;
-    
+        
     public:
         Response();
         std::string toString() const;
         void setStatusCode(int code);
         void setBody(const std::string& body_content);
+        std::string getMessageBycode(int code) const;
         void addHeader(const std::string& key, const std::string& value);
         std::string getMediaType(const std::string& extencion);
         Response execute_cgi(const HttpRequest& req, 
                                const std::string& path, 
-                               const LocationConfig& location);
+                               const LocationConfig& location,
+                                const ServerConfig& config);
         void parseCgiOutput(const std::string& cgi_output, Response& res);
 
 };

@@ -203,8 +203,10 @@ void Server::handle_client(int fd)
 
     clients[fd].append_data(std::string(buffer, bytes),configs[client_config_index[fd]]);
 
-    if (clients[fd].getErrorCode() != 0) {
-        Response response = build_page_error(clients[fd].getErrorCode());
+    if (clients[fd].getErrorCode() != 0)
+    {
+        LocationConfig emptyLoc;
+        Response response = build_page_error(clients[fd].getErrorCode(),configs[client_config_index[fd]],emptyLoc);
         std::string final = response.toString();
         send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fd);
@@ -238,8 +240,10 @@ void Server::handle_client(int fd)
     }
 
     if (!location) {
-        std::string err = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-        send(fd, err.c_str(), err.size(), 0);
+        LocationConfig emptyLoc;
+        Response response = build_page_error(404,config,emptyLoc);
+        std::string final = response.toString();
+        send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fd);
         return;
     }
