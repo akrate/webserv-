@@ -1,167 +1,166 @@
-#include "../include/Parser.hpp"
-
+#include "Parser.hpp"
+#include <cstdlib>
 
 LocationConfig::LocationConfig()
     : autoindex(false),
-    redirect_code(0),
-    allow_upload(false),
-    client_max_body_size(0)
+      redirect_code(0),
+      allow_upload(false),
+      client_max_body_size(0)
 {}
 
-LocationConfig Parser::parse_location_block(const std::string& content, size_t& pos, std::string& path)
+LocationConfig Parser::parse_location_block(const TokenList& tokens, size_t& pos, const std::string& path)
 {
     LocationConfig location;
-    location.path      = path;
-    location.autoindex = false;
+    location.path = path;
 
-    size_t brace_start = content.find('{', pos);
-    if (brace_start == std::string::npos)
-        throw ParserException("missing '{' in location block for path '" + path + "'");
-
-    std::string block = extract_block(content, brace_start);
-    pos = brace_start;
-
-    size_t block_pos = 0;
-    while (block_pos < block.length())
+    consume(tokens, pos, TOKEN_LBRACE, "expected '{' to open location block");
+    while (true)
     {
-        size_t end = block.find('\n', block_pos);
-        if (end == std::string::npos) end = block.length();
-
-        std::string line = Utils::trim(block.substr(block_pos, end - block_pos));
-        block_pos = end + 1;
-
-        if (line.empty() || line[0] == '#')
-            continue;
-        if (!line.empty() && line[line.length() - 1] == ';')
-            line.erase(line.length() - 1);
-
-        std::vector<std::string> parts = Utils::split(line);
-        if (parts.empty()) 
-            continue;
-
-        std::string key = parts[0];
-
+        const Token& t = peek(tokens, pos);
+        if (t.type == TOKEN_RBRACE)
+        {
+            pos++;
+            break;
+        }
+        if (t.type == TOKEN_EOF)
+            throw ParserException("unexpected end of file inside location block", t.line);
+        if (t.type != TOKEN_KEYWORD)
+            throw ParserException("expected directive, got '" + t.value + "'", t.line);
+        std::string key = t.value;
+        pos++;
+        std::vector<std::string> vals = readValues(tokens, pos);
         if (key == "root")
         {
-            if (parts.size() < 2)
-                throw ParserException("'root' requires an argument");
-            location.root = parts[1];
+            if (vals.size() != 1)
+                throw ParserException("'root' requires exactly one argument", t.line);
+            location.root = vals[0];
         }
         else if (key == "index")
         {
-            if (parts.size() < 2)
-                throw ParserException("'index' requires at least one argument");
-            for (size_t i = 1; i < parts.size(); i++)
-                location.index.push_back(parts[i]);
+            if (vals.empty())
+                throw ParserException("'index' requires at least one argument", t.line);
+            for (size_t i = 0; i < vals.size(); i++)
+                location.index.push_back(vals[i]);
         }
         else if (key == "methods")
         {
-            if (parts.size() < 2)
-                throw ParserException("'methods' requires at least one argument");
+            if (vals.empty())
+                throw ParserException("'methods' requires at least one argument", t.line);
             const std::string valid[] = {"GET", "POST", "DELETE"};
-            for (size_t i = 1; i < parts.size(); i++)
+            for (size_t i = 0; i < vals.size(); i++)
             {
                 bool ok = false;
-                for (int v = 0; v < 3; v++)
-                    if (parts[i] == valid[v]) 
-                    { 
-                        ok = true; 
-                        break; 
+                for (int j = 0; j < 3; j++)
+                {
+                    if (vals[i] == valid[j])
+                    {
+                        ok = true;
+                        break;
                     }
+                }
                 if (!ok)
-                    throw ParserException("unsupported HTTP method '" + parts[i] + "' (allowed: GET, POST, DELETE)");
-                location.allowed_methods.push_back(parts[i]);
+                    throw ParserException("unsupported HTTP method '" + vals[i] + "' (allowed: GET, POST, DELETE)", t.line);
+                location.allowed_methods.push_back(vals[i]);
             }
         }
         else if (key == "autoindex")
         {
-            if (parts.size() == 2)
-            {
-                if (parts[1] != "on" && parts[1] != "off")
-                    throw ParserException("'autoindex' value must be 'on' or 'off'");
-                location.autoindex = (parts[1] == "on");
-            }
-            else
-                throw ParserException("'autoindex' requires 'on' or 'off'");
-
+            if (vals.size() != 1)
+                throw ParserException("'autoindex' requires exactly one argument", t.line);
+            if (vals[0] != "on" && vals[0] != "off")
+                throw ParserException("'autoindex' value must be 'on' or 'off'", t.line);
+            location.autoindex = (vals[0] == "on");
         }
-        else if(key == "cgi_ext")
+        else if (key == "cgi_ext")
         {
-            if(parts.size() > 1)
-            {
-                for(size_t i = 1; i < parts.size(); i++)
-                    location.cgi_extensions.push_back(parts[i]);
-            }
+            if (vals.empty())
+                throw ParserException("'cgi_ext' requires at least one argument", t.line);
+            for (size_t i = 0; i < vals.size(); i++)
+                location.cgi_extensions.push_back(vals[i]);
         }
-        else if(key == "cgi_path")
+        else if (key == "cgi_path")
         {
-            if(parts.size() > 1)
-                location.cgi_path = parts[1];
+            if (vals.size() != 1)
+                throw ParserException("'cgi_path' requires exactly one argument", t.line);
+            location.cgi_path = vals[0];
         }
         else if (key == "upload_store")
         {
-            if (parts.size() < 2)
-                throw ParserException("'upload_store' requires a path argument");
-            location.upload_store = parts[1];
+            if (vals.size() != 1)
+                throw ParserException("'upload_store' requires exactly one argument", t.line);
+            location.upload_store = vals[0];
         }
         else if (key == "allow_upload")
         {
-            if (parts.size() == 2)
-            {
-                if (parts[1] != "on" && parts[1] != "off")
-                    throw ParserException("'allow_upload' value must be 'on' or 'off'");
-                location.allow_upload = (parts[1] == "on");
-            }
-            else
-                throw ParserException("'allow_upload' requires 'on' or 'off'");
-
+            if (vals.size() != 1)
+                throw ParserException("'allow_upload' requires exactly one argument", t.line);
+            if (vals[0] != "on" && vals[0] != "off")
+                throw ParserException("'allow_upload' value must be 'on' or 'off'", t.line);
+            location.allow_upload = (vals[0] == "on");
         }
         else if (key == "error_page")
         {
-            if (parts.size() < 3)
-                throw ParserException("'error_page' requires at least one code and a URI");
-            std::string uri = parts[parts.size() - 1];
-            for (size_t i = 1; i < parts.size() - 1; i++)
+            if (vals.size() < 2)
+                throw ParserException("'error_page' requires at least one code and a URI", t.line);
+            std::string uri = vals.back();
+            for (size_t i = 0; i < vals.size() - 1; i++)
             {
-                if (!isNumber(parts[i]))
-                    throw ParserException("invalid error code '" + parts[i] + "'");
-                int code = std::atoi(parts[i].c_str());
+                if (!isNumber(vals[i]))
+                {
+                    throw ParserException("invalid error code '" + vals[i] + "'", t.line);
+                }
+                int code = std::atoi(vals[i].c_str());
                 if (code < 100 || code > 599)
-                    throw ParserException("error code out of range: " + parts[i]);
+                {
+                    throw ParserException(
+                        "error code out of range: " + vals[i],
+                        t.line);
+                }
                 location.error_pages[code] = uri;
             }
         }
         else if (key == "client_max_body_size")
         {
-            if (parts.size() != 2)
-                throw ParserException("'client_max_body_size' requires exactly one argument");
-            location.client_max_body_size = parse_size(parts[1]);
+            if (vals.size() != 1)
+            {
+                throw ParserException(
+                    "'client_max_body_size' requires exactly one argument",
+                    t.line);
+            }
+            location.client_max_body_size = parse_size(vals[0]);
         }
         else if (key == "return")
         {
-            if (parts.size() < 2)
-                throw ParserException("'return' requires at least one argument");
-            if (parts.size() > 3)
-                throw ParserException("too many arguments for 'return'");
-            if (parts.size() == 2)
+            if (vals.empty())
+                throw ParserException("'return' requires at least one argument", t.line);
+
+            if (vals.size() > 2)
+                throw ParserException("too many arguments for 'return'", t.line);
+
+            if (vals.size() == 1)
             {
-                if (isNumber(parts[1]))
-                    location.redirect_code = parseReturnCode(parts[1]);
+                if (isNumber(vals[0]))
+                {
+                    location.redirect_code =
+                        parseReturnCode(vals[0]);
+                }
                 else
                 {
                     location.redirect_code = 302;
-                    location.redirect_url  = parts[1];
+                    location.redirect_url = vals[0];
                 }
             }
             else
             {
-                location.redirect_code = parseReturnCode(parts[1]);
-                location.redirect_url  = parts[2];
+                location.redirect_code =
+                    parseReturnCode(vals[0]);
+
+                location.redirect_url = vals[1];
             }
         }
         else
-            throw ParserException("unknown directive '" + key + "' in location block");
-
+            throw ParserException("unknown directive '" + key + "' in location block", t.line);
     }
+
     return location;
 }
