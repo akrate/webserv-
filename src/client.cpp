@@ -25,6 +25,17 @@ void Client::append_data(const std::string& data, const ServerConfig& conf)
     raw_request += data;
     parse_request(conf);
 }
+void Client::reset()
+{
+    raw_request.clear();
+    request       = HttpRequest();
+    request_complete = false;
+    headers_parsed   = false;
+    is_chunked       = false;
+    content_length   = 0;
+    error_code       = 0;
+}
+
 void Client::parse_request(const ServerConfig& conf)
 {
     LocationConfig config;
@@ -232,7 +243,7 @@ void Client::parse_chunked_body()
 // }
 
 
-std::string getExtension(const std::string& path)
+std::string getExtensionclient(const std::string& path)
 {
     size_t point = path.find_last_of('.');
     if (point == std::string::npos || point == path.length() - 1)

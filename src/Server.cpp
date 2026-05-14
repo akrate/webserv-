@@ -1,6 +1,6 @@
 #include "Server.hpp"
 #include "client.hpp"
-#include "response.hpp"
+#include "../include/response.hpp"
 
 Server::Server() {}
 
@@ -33,6 +33,8 @@ void Server::check_timeouts(std::vector<struct pollfd>& fds)
     {
         int fd = fds[i].fd;
         if (is_listen_fd(fd))
+            continue;
+        if (cgi_processes.count(fd))
             continue;
         if (now - client_last_active[fd] >= CLIENT_TIMEOUT)
         {
@@ -164,10 +166,68 @@ void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
 
     std::cout << "New client connected (fd=" << client_fd << ")" << std::endl;
 }
+
+void Server::handle_cgi(std::vector<struct pollfd>& fds, size_t i)
+{
+    int         pipe_fd = fds[i].fd;
+    CgiProcess& cgi     = cgi_processes[pipe_fd];
+
+    char buffer[4096];
+    int  bytes = read(pipe_fd, buffer, sizeof(buffer));
+
+    if (bytes > 0)
+    {
+        cgi.output.append(buffer, bytes);
+        return;
+    }
+
+    if (bytes < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return;
+        std::cerr << "Error: read() on CGI pipe failed: " << strerror(errno) << std::endl;
+    }
+    close(pipe_fd);
+    fds.erase(fds.begin() + i);
+
+    int status;
+    waitpid(cgi.pid, &status, 0);
+
+    Response res;
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+        res = build_page_error(502);
+    else if (WIFSIGNALED(status))
+        res = build_page_error(500);
+    else
+        Response::parseCgiOutput(cgi.output, res);
+
+    if (cgi.keep_alive)
+        res.addHeader("connection", "keep-alive");
+    else
+        res.addHeader("connection", "close");
+
+    std::string final = res.toString();
+    send(cgi.client_fd, final.c_str(), final.size(), 0);
+
+    if (cgi.keep_alive)
+        clients[cgi.client_fd].reset();
+    else
+    {
+        for (size_t j = 0; j < fds.size(); j++)
+        {
+            if (fds[j].fd == cgi.client_fd)
+            {
+                disconnect_client(fds, j);
+                break;
+            }
+        }
+    }
+
+    cgi_processes.erase(pipe_fd);
+}
 void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 {
     int fd = fds[i].fd;
-
     char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
 
@@ -176,9 +236,7 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
         disconnect_client(fds, i);
         return;
     }
-
     client_last_active[fd] = time(NULL);
-
     const ServerConfig& config = configs[client_config_index[fd]];
     clients[fd].append_data(std::string(buffer, bytes), config);
 
@@ -225,7 +283,59 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
     bool keep_alive = (it != req.headers.end() &&
                        it->second.find("keep-alive") != std::string::npos);
 
+    std::string full_path = location->root + req.path;
+    if (isCgi(full_path))
+    {
+        int pipe_in[2], pipe_out[2];
+        if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1) {
+            send(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n", 56, 0);
+            disconnect_client(fds, i);
+            return;
+        }
+        char **env = prepareEnv(req, full_path);
+        pid_t pid  = fork();
+
+        if (pid == 0)
+        {
+            dup2(pipe_in[0],  STDIN_FILENO);
+            dup2(pipe_out[1], STDOUT_FILENO);
+            close(pipe_in[0]);  close(pipe_in[1]);
+            close(pipe_out[0]); close(pipe_out[1]);
+
+            char *args[] = {
+                (char *)location->cgi_path.c_str(),
+                (char *)full_path.c_str(),
+                NULL
+            };
+            execve(args[0], args, env);
+            exit(1);
+        }
+        close(pipe_in[0]);
+        if (req.method == "POST")
+            write(pipe_in[1], req.body.c_str(), req.body.size());
+        close(pipe_in[1]);
+        close(pipe_out[1]);
+
+        fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
+        freeEnv(env);
+        CgiProcess cgi;
+        cgi.pipe_fd    = pipe_out[0];
+        cgi.client_fd  = fd;
+        cgi.pid        = pid;
+        cgi.keep_alive = keep_alive;
+        cgi_processes[pipe_out[0]] = cgi;
+        struct pollfd pfd;
+        pfd.fd      = pipe_out[0];
+        pfd.events  = POLLIN;
+        pfd.revents = 0;
+        fds.push_back(pfd);
+
+        std::cout << "CGI started (pipe_fd=" << pipe_out[0]
+                  << " client_fd=" << fd << ")" << std::endl;
+        return;
+    }
     Response response = build_response(req, config, *location);
+
     if (keep_alive)
         response.addHeader("connection", "keep-alive");
     else
@@ -233,18 +343,12 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 
     std::string final = response.toString();
     send(fd, final.c_str(), final.size(), 0);
-
-    std::cout << "Method : " << req.method     << std::endl;
-    std::cout << "Path   : " << req.path       << std::endl;
-    std::cout << "Host   : " << config.host    << std::endl;
-    std::cout << "Port   : " << config.port    << std::endl;
-    std::cout << "Root   : " << location->root << std::endl;
-
     if (keep_alive)
         clients[fd].reset();
     else
         disconnect_client(fds, i);
 }
+
 void Server::run()
 {
     std::vector<struct pollfd> fds;
@@ -268,7 +372,9 @@ void Server::run()
             std::cerr << "Error: poll() failed: " << strerror(errno) << std::endl;
             break;
         }
+
         check_timeouts(fds);
+
         for (size_t i = fds.size(); i-- > 0;)
         {
             if (!(fds[i].revents & POLLIN))
@@ -276,6 +382,8 @@ void Server::run()
 
             if (is_listen_fd(fds[i].fd))
                 accept_client(fds, fds[i].fd);
+            else if (cgi_processes.count(fds[i].fd))
+                handle_cgi(fds, i);
             else
                 handle_client(fds, i);
         }
