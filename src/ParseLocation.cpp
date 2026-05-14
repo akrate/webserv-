@@ -106,43 +106,30 @@ LocationConfig Parser::parse_location_block(const TokenList& tokens, size_t& pos
             for (size_t i = 0; i < vals.size() - 1; i++)
             {
                 if (!isNumber(vals[i]))
-                {
                     throw ParserException("invalid error code '" + vals[i] + "'", t.line);
-                }
                 int code = std::atoi(vals[i].c_str());
                 if (code < 100 || code > 599)
-                {
-                    throw ParserException(
-                        "error code out of range: " + vals[i],
-                        t.line);
-                }
+                    throw ParserException("error code out of range: " + vals[i], t.line);
                 location.error_pages[code] = uri;
             }
         }
         else if (key == "client_max_body_size")
         {
             if (vals.size() != 1)
-            {
-                throw ParserException(
-                    "'client_max_body_size' requires exactly one argument",
-                    t.line);
-            }
+                throw ParserException("'client_max_body_size' requires exactly one argument", t.line);
             location.client_max_body_size = parse_size(vals[0]);
         }
         else if (key == "return")
         {
             if (vals.empty())
                 throw ParserException("'return' requires at least one argument", t.line);
-
             if (vals.size() > 2)
                 throw ParserException("too many arguments for 'return'", t.line);
-
             if (vals.size() == 1)
             {
                 if (isNumber(vals[0]))
                 {
-                    location.redirect_code =
-                        parseReturnCode(vals[0]);
+                    location.redirect_code = parseReturnCode(vals[0]);
                 }
                 else
                 {
@@ -152,15 +139,12 @@ LocationConfig Parser::parse_location_block(const TokenList& tokens, size_t& pos
             }
             else
             {
-                location.redirect_code =
-                    parseReturnCode(vals[0]);
-
+                location.redirect_code = parseReturnCode(vals[0]);
                 location.redirect_url = vals[1];
             }
         }
         else
             throw ParserException("unknown directive '" + key + "' in location block", t.line);
     }
-
     return location;
 }
