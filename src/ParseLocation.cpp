@@ -134,6 +134,9 @@ LocationConfig Parser::parse_location_block(const TokenList& tokens, size_t& pos
                 else
                 {
                     location.redirect_code = 302;
+                    size_t pos = vals[0].find("http://");
+                    if(pos == std::string::npos)
+                        throw ParserException("invalid return code");
                     location.redirect_url = vals[0];
                 }
             }

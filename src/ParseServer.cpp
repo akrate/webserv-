@@ -2,14 +2,15 @@
 #include <cstdlib>
 
 ServerConfig::ServerConfig()
-    : port(0),
-      host("0.0.0.0"),
-      client_max_body_size(1024 * 1024)
+    :   port(0),
+        host("0.0.0.0"),
+        redirect_code(0),
+        client_max_body_size(1024 * 1024)
 {}
 
 ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
 {
-    ServerConfig config;
+    ServerConfig server;
     consume(tokens, pos, TOKEN_LBRACE, "expected '{' to open server block");
 
     while (true)
@@ -37,7 +38,7 @@ ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
             if (path.empty() || path[0] != '/')
                 throw ParserException("location path must start with '/': '" + path + "'", path_tok.line);
             LocationConfig loc = parse_location_block(tokens, pos, path);
-            config.locations.push_back(loc);
+            server.locations.push_back(loc);
             continue;
         }
 
@@ -45,6 +46,8 @@ ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
 
         if (key == "listen")
         {
+            if(server.port != 0)
+                throw ParserException("duplicate port");
             if (vals.size() != 1)
                 throw ParserException("'listen' requires exactly one argument", t.line);
             char* end_ptr;
@@ -53,33 +56,33 @@ ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
                 throw ParserException("invalid port '" + vals[0] + "'", t.line);
             if (port < 1 || port > 65535)
                 throw ParserException("port out of range: " + vals[0], t.line);
-            config.port = static_cast<int>(port);
+            server.port = static_cast<int>(port);
         }
         else if (key == "host")
         {
             if (vals.size() != 1)
                 throw ParserException("'host' requires exactly one argument", t.line);
-            config.host = vals[0];
+            server.host = vals[0];
         }
         else if (key == "server_name")
         {
             if (vals.empty())
                 throw ParserException("'server_name' requires at least one argument", t.line);
             for (size_t i = 0; i < vals.size(); i++)
-                config.server_names.push_back(vals[i]);
+                server.server_names.push_back(vals[i]);
         }
         else if (key == "root")
         {
             if (vals.size() != 1)
                 throw ParserException("'root' requires exactly one argument", t.line);
-            config.root = vals[0];
+            server.root = vals[0];
         }
         else if (key == "index")
         {
             if (vals.empty())
                 throw ParserException("'index' requires at least one argument", t.line);
             for (size_t i = 0; i < vals.size(); i++)
-                config.index.push_back(vals[i]);
+                server.index.push_back(vals[i]);
         }
         else if (key == "error_page")
         {
@@ -93,14 +96,41 @@ ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
                 int code = std::atoi(vals[i].c_str());
                 if (code < 100 || code > 599)
                     throw ParserException("error code out of range: " + vals[i], t.line);
-                config.error_pages[code] = uri;
+                server.error_pages[code] = uri;
             }
         }
         else if (key == "client_max_body_size")
         {
             if (vals.size() != 1)
                 throw ParserException("'client_max_body_size' requires exactly one argument", t.line);
-            config.client_max_body_size = parse_size(vals[0]);
+            server.client_max_body_size = parse_size(vals[0]);
+        }
+        else if (key == "return")
+        {
+            if (vals.empty())
+                throw ParserException("'return' requires at least one argument", t.line);
+            if (vals.size() > 2)
+                throw ParserException("too many arguments for 'return'", t.line);
+            if (vals.size() == 1)
+            {
+                if (isNumber(vals[0]))
+                {
+                    server.redirect_code = parseReturnCode(vals[0]);
+                }
+                else
+                {
+                    server.redirect_code = 302;
+                    size_t pos = vals[0].find("http://");
+                    if(pos == std::string::npos)
+                        throw ParserException("invalid return code");
+                    server.redirect_url = vals[0];
+                }
+            }
+            else
+            {
+                server.redirect_code = parseReturnCode(vals[0]);
+                server.redirect_url = vals[1];
+            }
         }
         else
         {
@@ -108,5 +138,5 @@ ServerConfig Parser::parse_server_block(const TokenList& tokens, size_t& pos)
         }
     }
 
-    return config;
+    return server;
 }
