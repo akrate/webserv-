@@ -195,9 +195,9 @@ void Server::handle_cgi(std::vector<struct pollfd>& fds, size_t i)
 
     Response res;
     if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
-        res = build_page_error(502);
+        res = build_page_error(502, configs[cgi.config_index], cgi.location);
     else if (WIFSIGNALED(status))
-        res = build_page_error(500);
+        res = build_page_error(500, configs[cgi.config_index], cgi.location);
     else
         Response::parseCgiOutput(cgi.output, res);
 
@@ -225,6 +225,7 @@ void Server::handle_cgi(std::vector<struct pollfd>& fds, size_t i)
 
     cgi_processes.erase(pipe_fd);
 }
+
 void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 {
     int fd = fds[i].fd;
@@ -240,8 +241,10 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
     const ServerConfig& config = configs[client_config_index[fd]];
     clients[fd].append_data(std::string(buffer, bytes), config);
 
-    if (clients[fd].getErrorCode() != 0) {
-        Response response = build_page_error(clients[fd].getErrorCode());
+    if (clients[fd].getErrorCode() != 0)
+    {
+        LocationConfig emptyLoc;
+        Response response = build_page_error(clients[fd].getErrorCode(), configs[client_config_index[fd]], emptyLoc);
         std::string final = response.toString();
         send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fds, i);
@@ -272,11 +275,14 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
         }
     }
     if (!location) {
-        std::string err = "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\n\r\n";
-        send(fd, err.c_str(), err.size(), 0);
+        LocationConfig emptyLoc;
+        Response response = build_page_error(404, config, emptyLoc);
+        std::string final = response.toString();
+        send(fd, final.c_str(), final.size(), 0);
         disconnect_client(fds, i);
         return;
     }
+
     std::map<std::string, std::string>::const_iterator it =
         req.headers.find("connection");
 
@@ -294,6 +300,17 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
         }
         char **env = prepareEnv(req, full_path);
         pid_t pid  = fork();
+
+        if (pid < 0)
+        {
+            std::cerr << "Error: fork() failed: " << strerror(errno) << std::endl;
+            close(pipe_in[0]);  close(pipe_in[1]);
+            close(pipe_out[0]); close(pipe_out[1]);
+            freeEnv(env);
+            send(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n", 56, 0);
+            disconnect_client(fds, i);
+            return;
+        }
 
         if (pid == 0)
         {
@@ -318,12 +335,17 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 
         fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
         freeEnv(env);
+
         CgiProcess cgi;
-        cgi.pipe_fd    = pipe_out[0];
-        cgi.client_fd  = fd;
-        cgi.pid        = pid;
-        cgi.keep_alive = keep_alive;
+        cgi.pipe_fd      = pipe_out[0];
+        cgi.client_fd    = fd;
+        cgi.pid          = pid;
+        cgi.keep_alive   = keep_alive;
+        cgi.config_index = client_config_index[fd];
+        cgi.location     = *location;
+
         cgi_processes[pipe_out[0]] = cgi;
+
         struct pollfd pfd;
         pfd.fd      = pipe_out[0];
         pfd.events  = POLLIN;
@@ -334,6 +356,7 @@ void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
                   << " client_fd=" << fd << ")" << std::endl;
         return;
     }
+
     Response response = build_response(req, config, *location);
 
     if (keep_alive)

@@ -5,11 +5,13 @@
 #include <sys/types.h>
 
 struct CgiProcess {
-    int         pipe_fd;
-    int         client_fd;
-    pid_t       pid;
-    std::string output;
-    bool        keep_alive;
+    int            pipe_fd;
+    int            client_fd;
+    pid_t          pid;
+    bool           keep_alive;
+    std::string    output;
+    size_t         config_index;  // ← add
+    LocationConfig location;      // ← add
 };
 
 #endif

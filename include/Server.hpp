@@ -26,6 +26,7 @@ class Server {
         std::map<int, Client>       clients;
         std::map<int, time_t>       client_last_active;
         std::map<int, CgiProcess>   cgi_processes;
+        
 
         static const int            CLIENT_TIMEOUT = 30;
 
