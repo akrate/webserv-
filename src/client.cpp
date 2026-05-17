@@ -170,6 +170,23 @@ void Client::parse_headers(const std::string& headers_part)
         value = Utils::trim(value);
  
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        if(key == "content-length" && request.headers.count("content-length"))
+        {
+                error_code = 400;
+                return;
+
+        }
+        if(key == "host" && request.headers.count("host"))
+        {
+            error_code = 400;
+            return;
+        }
+        if(key == "transfer-encoding" && request.headers.count("transfer-encoding"))
+        {
+                error_code = 400;
+                return;
+
+        }
         request.headers[key] = value;
     }
 }
