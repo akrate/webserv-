@@ -5,7 +5,9 @@ Client::Client()
       headers_parsed(false),
       is_chunked(false),
       content_length(0),
-      error_code(0)
+      error_code(0),
+      bytes_sent(0)
+
 {}
 const HttpRequest& Client::getRequest() const
 {
@@ -40,46 +42,62 @@ void Client::reset()
 
 void Client::parse_request(const ServerConfig& conf)
 {
-    LocationConfig config;
-    if(request_complete || error_code != 0)
+    if (request_complete || error_code != 0)
         return;
+
     size_t pos = raw_request.find("\r\n\r\n");
-    if(pos == std::string::npos)  
-    {
-        error_code = 400;
+    if (pos == std::string::npos)
         return;
-    }  
-    std::cout << "full request ==> " << raw_request << std::endl;
+
     if (!headers_parsed)
     {
         std::string headers_part = raw_request.substr(0, pos);
         size_t first_line_end = headers_part.find("\r\n");
+        std::string request_line;
+        std::string rest;
+
         if (first_line_end == std::string::npos)
         {
-            error_code = 400;
-            return;
+            request_line = headers_part;
+            rest = "";
         }
-        std::string request_line = headers_part.substr(0, first_line_end);
+        else
+        {
+            request_line = headers_part.substr(0, first_line_end);
+            rest = headers_part.substr(first_line_end + 2);
+        }
+
         parse_request_line(request_line);
         if (error_code != 0)
             return;
- 
-        parse_headers(headers_part.substr(first_line_end + 2));
-        if (error_code != 0)
-            return;
- 
-        if (request.version != "HTTP/1.1" && request.version != "HTTP/1.0")
+
+        if (!rest.empty())
+        {
+            parse_headers(rest);
+            if (error_code != 0)
+                return;
+        }
+
+        if (request.version == "HTTP/1.1" && !request.headers.count("host"))
         {
             error_code = 400;
             return;
         }
+
         headers_parsed = true;
+
         if (request.headers.count("transfer-encoding") && request.headers["transfer-encoding"] == "chunked")
         {
             is_chunked = true;
             content_length = 0;
         }
-        else if (request.headers.count("content-length"))
+
+        if (is_chunked && (request.method == "GET" || request.method == "DELETE"))
+        {
+            error_code = 400;
+            return;
+        }
+        else if (!is_chunked && request.headers.count("content-length"))
         {
             char *end;
             long val = strtol(request.headers["content-length"].c_str(), &end, 10);
@@ -96,6 +114,7 @@ void Client::parse_request(const ServerConfig& conf)
             }
         }
     }
+
     if (is_chunked)
         parse_chunked_body();
     else
@@ -109,7 +128,7 @@ void Client::parse_request_line(const std::string& line)
     std::string method, path_query, version;
  
     ss >> method >> path_query >> version;
-    if (method.empty() || path_query.empty() || version.empty())
+    if (!ss.eof() || method.empty() || path_query.empty() || version.empty())
     {
         error_code = 400;
         return;
@@ -183,9 +202,8 @@ void Client::parse_headers(const std::string& headers_part)
         }
         if(key == "transfer-encoding" && request.headers.count("transfer-encoding"))
         {
-                error_code = 400;
-                return;
-
+            error_code = 400;
+            return;
         }
         request.headers[key] = value;
     }
