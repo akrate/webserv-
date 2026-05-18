@@ -5,7 +5,9 @@ Client::Client()
       headers_parsed(false),
       is_chunked(false),
       content_length(0),
-      error_code(0)
+      error_code(0),
+      bytes_sent(0)
+
 {}
 const HttpRequest& Client::getRequest() const
 {
@@ -25,97 +27,135 @@ void Client::append_data(const std::string& data, const ServerConfig& conf)
     raw_request += data;
     parse_request(conf);
 }
+void Client::reset()
+{
+    raw_request.clear();
+    request          = HttpRequest();
+    request_complete = false;
+    headers_parsed   = false;
+    is_chunked       = false;
+    content_length   = 0;
+    error_code       = 0;
+    send_buffer.clear();
+    bytes_sent = 0;
+}
+
 void Client::parse_request(const ServerConfig& conf)
 {
-    LocationConfig config;
-    if(request_complete || error_code != 0)
+    if (request_complete || error_code != 0)
         return;
+
     size_t pos = raw_request.find("\r\n\r\n");
-    if(pos == std::string::npos)    
+    if (pos == std::string::npos)
         return;
-    std::cout << "full request ==> " << raw_request << std::endl;
-    if(!headers_parsed)
+
+    if (!headers_parsed)
     {
         std::string headers_part = raw_request.substr(0, pos);
-        std::istringstream ss(headers_part);
-        std::string line;
-
-        std::getline(ss, line);
-        parse_request_line(line);
-        if(error_code != 0)
-            return;
         size_t first_line_end = headers_part.find("\r\n");
+        std::string request_line;
+        std::string rest;
+
         if (first_line_end == std::string::npos)
+        {
+            request_line = headers_part;
+            rest = "";
+        }
+        else
+        {
+            request_line = headers_part.substr(0, first_line_end);
+            rest = headers_part.substr(first_line_end + 2);
+        }
+
+        parse_request_line(request_line);
+        if (error_code != 0)
+            return;
+
+        if (!rest.empty())
+        {
+            parse_headers(rest);
+            if (error_code != 0)
+                return;
+        }
+
+        if (request.version == "HTTP/1.1" && !request.headers.count("host"))
         {
             error_code = 400;
             return;
         }
-        parse_headers(headers_part.substr(first_line_end + 2));
+
         headers_parsed = true;
 
-        if(request.headers.count("content-length"))
-        {
-            char *end;
-            long val = strtol(request.headers["content-length"].c_str(), &end, 10);
-            if(*end != '\0' || val < 0)
-            {
-                error_code = 400;
-                return;
-            }
-            content_length = (size_t)val;
-            if(conf.client_max_body_size < content_length)
-            {
-                error_code = 413;
-                return;
-            }
-        }
         if (request.headers.count("transfer-encoding") && request.headers["transfer-encoding"] == "chunked")
         {
             is_chunked = true;
             content_length = 0;
         }
+
+        if (is_chunked && (request.method == "GET" || request.method == "DELETE"))
+        {
+            error_code = 400;
+            return;
+        }
+        else if (!is_chunked && request.headers.count("content-length"))
+        {
+            char *end;
+            long val = strtol(request.headers["content-length"].c_str(), &end, 10);
+            if (*end != '\0' || val < 0)
+            {
+                error_code = 400;
+                return;
+            }
+            content_length = (size_t)val;
+            if (conf.client_max_body_size > 0 && content_length > conf.client_max_body_size)
+            {
+                error_code = 413;
+                return;
+            }
+        }
     }
-    if(is_chunked)
+
+    if (is_chunked)
         parse_chunked_body();
     else
         parse_body();
-
 }
 
-void Client::parse_request_line(const std::string &line)
+
+void Client::parse_request_line(const std::string& line)
 {
     std::istringstream ss(line);
     std::string method, path_query, version;
-
+ 
     ss >> method >> path_query >> version;
-    if(method.empty() || path_query.empty() || version.empty())
+    if (!ss.eof() || method.empty() || path_query.empty() || version.empty())
     {
-        error_code = 400; // EMPTY ELEMENT 
+        error_code = 400;
         return;
     }
-
-    if(version != "HTTP/1.0" && version != "HTTP/1.1")
+    if (version != "HTTP/1.0" && version != "HTTP/1.1")
     {
-        error_code = 505 ;// VERSION NOT SUPPORTED
+        error_code = 505;
         return;
     }
-    if(method != "POST" && method != "GET" && method != "DELETE")
+    if (method != "GET" && method != "POST" && method != "DELETE")
     {
-        error_code = 405;// METHOD NOT ALLOWED
+        error_code = 405;
         return;
     }
-    request.method = method;
+ 
+    request.method  = method;
     request.version = version;
-
+ 
     size_t q = path_query.find('?');
-    if(q != std::string::npos)
+    if (q != std::string::npos)
     {
-        request.path = path_query.substr(0, q);
+        request.path  = path_query.substr(0, q);
         request.query = path_query.substr(q + 1);
     }
     else
     {
-        request.path = path_query;
+        request.path  = path_query;
         request.query = "";
     }
 }
@@ -124,22 +164,47 @@ void Client::parse_headers(const std::string& headers_part)
 {
     std::istringstream ss(headers_part);
     std::string line;
-
-    while(std::getline(ss, line))
+ 
+    while (std::getline(ss, line))
     {
-        if(!line.empty() && line[line.size() - 1] == '\r')
+        if (!line.empty() && line[line.size() - 1] == '\r')
             line.erase(line.size() - 1);
-        if(line.empty())
+        if (line.empty())
             break;
+ 
         size_t colon = line.find(':');
-        if(colon == std::string::npos)
-            continue;
-        std::string key = line.substr(0, colon);
+        if (colon == std::string::npos)
+        {
+            error_code = 400;
+            return;
+        }
+        if (colon == 0)
+        {
+            error_code = 400;
+            return;
+        }
+        std::string key   = line.substr(0, colon);
         std::string value = line.substr(colon + 1);
-        key = Utils::trim(key);
+        key   = Utils::trim(key);
         value = Utils::trim(value);
-
+ 
         std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        if(key == "content-length" && request.headers.count("content-length"))
+        {
+                error_code = 400;
+                return;
+
+        }
+        if(key == "host" && request.headers.count("host"))
+        {
+            error_code = 400;
+            return;
+        }
+        if(key == "transfer-encoding" && request.headers.count("transfer-encoding"))
+        {
+            error_code = 400;
+            return;
+        }
         request.headers[key] = value;
     }
 }
@@ -148,9 +213,11 @@ void Client::parse_body()
 {
     size_t pos = raw_request.find("\r\n\r\n");
     if (pos == std::string::npos)
+    {
+        error_code = 400;
         return;
+    }
     std::string body = raw_request.substr(pos + 4);
-
     if(request.method == "GET" || request.method == "DELETE")
     {
         request.body.clear();
@@ -170,33 +237,39 @@ void Client::parse_body()
 
 void Client::parse_chunked_body()
 {
-    request.body.clear();
     size_t header_end = raw_request.find("\r\n\r\n");
     std::string data = raw_request.substr(header_end + 4);
     size_t pos = 0;
-    while(pos < data.size())
+    std::string assembled;
+ 
+    while (pos < data.size())
     {
         size_t chunk_size_end = data.find("\r\n", pos);
-        if(chunk_size_end == std::string::npos)
+        if (chunk_size_end == std::string::npos)
             return;
-        std::string size_hex = data.substr(pos, chunk_size_end - pos);
-        char *end;
-        long chunk_size = strtol(size_hex.c_str(), &end, 16);
-        if (*end != '\0' || chunk_size < 0)
+ 
+        std::string size_hex  = data.substr(pos, chunk_size_end - pos);
+        char       *end_ptr;
+        long        chunk_size = strtol(size_hex.c_str(), &end_ptr, 16);
+ 
+        if (*end_ptr != '\0' || chunk_size < 0)
         {
             error_code = 400;
             return;
-        }     
-        if(chunk_size == 0)
+        }
+
+        if (chunk_size == 0)
         {
+            request.body     = assembled;
             request_complete = true;
             raw_request.clear();
             return;
         }
-        pos = chunk_size_end + 2;
-        if(pos + chunk_size > data.size())
+ 
+        pos = chunk_size_end + 2; 
+        if (pos + (size_t)chunk_size > data.size())
             return;
-        request.body += data.substr(pos, chunk_size);
+        assembled += data.substr(pos, chunk_size);
         if (data.substr(pos + chunk_size, 2) != "\r\n")
         {
             error_code = 400;
@@ -232,7 +305,7 @@ void Client::parse_chunked_body()
 // }
 
 
-std::string getExtension(const std::string& path)
+std::string getExtensionclient(const std::string& path)
 {
     size_t point = path.find_last_of('.');
     if (point == std::string::npos || point == path.length() - 1)

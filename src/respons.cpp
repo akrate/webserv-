@@ -22,18 +22,18 @@ std::string Response::getMessageBycode(int code) const
     {
         case 200: return "OK";
         case 201: return "Created";
-        case 204: return "No Content"; // مهمة فـ DELETE إلا نجح وما كاين body
-        case 301: return "Moved Permanently"; // إلا درتي Redirection
+        case 204: return "No Content";
+        case 301: return "Moved Permanently";
         case 400: return "Bad Request";
         case 403: return "Forbidden";
         case 404: return "Not Found";
         case 405: return "Method Not Allowed";
-        case 413: return "Content Too Large"; // مهمة للـ client_max_body_size
+        case 413: return "Content Too Large";
         case 500: return "Internal Server Error";
         case 502: return "Bad Gateway";
-        case 504: return "Gateway Timeout"; // مهمة للـ CGI Timeout اللي قاديتي
+        case 504: return "Gateway Timeout";
         case 505: return "HTTP Version Not Supported";
-        default:  return "Internal Server Error"; // اختيار آمن
+        default:  return "Internal Server Error";
     }
 }
 std::string Response::toString() const
@@ -194,11 +194,6 @@ Response build_response(const HttpRequest& req,
             return build_page_error(403,config,location);
         }
     }
-    // if (isCgi(path))
-    // {
-    //     std::cout << "\033[31mcgi==>""\033[0m"<< path << std::endl;
-    //     return res.execute_cgi(req, path, location);
-    // }
     if (req.method == "GET")
     {
         std::ifstream file(path.c_str());
@@ -211,7 +206,7 @@ Response build_response(const HttpRequest& req,
                           std::istreambuf_iterator<char>());
 
         res.setStatusCode(200);
-        res.addHeader("content-type", res.getMediaType(getExtension(path)));
+        res.addHeader("content-type", res.getMediaType(getExtensionclient(path)));
         res.setBody(body);
         return res;
     }
@@ -253,94 +248,6 @@ Response build_response(const HttpRequest& req,
     return  build_page_error(404,config,location);
 }
 
-// Response build_page_error(int code)
-// {
-//     Response res;
-//     res.setStatusCode(code);
-//     res.addHeader("Content-Type", "text/html");
-
-//     std::string message;
-//     if (code == 400) message = "Bad Request";
-//     else if (code == 403) message = "Forbidden";
-//     else if (code == 404) message = "Not Found";
-//     else if (code == 405) message = "Method Not Allowed";
-//     else if (code == 500) message = "Internal Server Error";
-//     else message = "Error";
-
-//     std::string error_page_path = "./www/html/errors/" + to_string(code) + ".html";
-//     std::ifstream file(error_page_path.c_str());
-    
-//     if (file.is_open())
-//     {
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//                           std::istreambuf_iterator<char>());
-//         res.setBody(body);
-//     }
-//     else
-//     {
-//         res.setBody("<html><body><h1>" + to_string(code) + " " + message + "</h1>" +
-//                     "<p>We're sorry, but an error occurred.</p></body></html>");
-//     }
-    
-//     return res;
-// }
-// Response build_page_error(const int code, const ServerConfig& config, const LocationConfig& location)
-
-// Response build_page_error(const int code)
-// {
-//     Response res;
-//     if (code == 400)
-//     {
-//         std::ifstream file("./www/html/errors/400.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//     if (code == 500)
-//     {
-//         std::ifstream file("./www/html/errors/500.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//     if (code == 405)
-//     {
-//         std::ifstream file("./www/html/errors/405.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//     if (code == 505)
-//     {
-//         std::ifstream file("./www/html/errors/505.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//     if (code == 413)
-//     {
-//         std::ifstream file("./www/html/errors/413.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//      if (code == 502)
-//     {
-//         std::ifstream file("./www/html/errors/502.html");
-//         std::string body((std::istreambuf_iterator<char>(file)),
-//         std::istreambuf_iterator<char>());
-//         res.addHeader("content-type", res.getMediaType("html"));
-//         res.setBody(body);
-//     }
-//     res.setStatusCode(code);
-//     res.addHeader("Connection", "close");
-//     return res;
-// }
 std::vector<std::string> list_files(const std::string& path)
 {
     std::vector<std::string> files;

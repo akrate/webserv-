@@ -1,12 +1,11 @@
-#include "../include/Server.hpp"
+#include "Server.hpp"
+#include "client.hpp"
+#include "../include/response.hpp"
 
-
-Server::Server() : epoll_fd(-1) {}
+Server::Server() {}
 
 Server::~Server() {
     close_all_sockets();
-    if (epoll_fd >= 0)
-        close(epoll_fd);
 }
 
 void Server::close_all_sockets() {
@@ -16,33 +15,36 @@ void Server::close_all_sockets() {
     listen_fds.clear();
 }
 
-void Server::disconnect_client(int fd)
+void Server::disconnect_client(std::vector<struct pollfd>& fds, size_t i)
 {
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+    int fd = fds[i].fd;
     close(fd);
     clients.erase(fd);
     client_config_index.erase(fd);
     client_last_active.erase(fd);
+    fds.erase(fds.begin() + i);
     std::cout << "Client disconnected (fd=" << fd << ")" << std::endl;
 }
 
-void Server::check_timeouts()
+void Server::check_timeouts(std::vector<struct pollfd>& fds)
 {
     time_t now = time(NULL);
-    std::map<int, time_t>::iterator it = client_last_active.begin();
-    while (it != client_last_active.end())
+    for (size_t i = fds.size(); i-- > 0;)
     {
-        int    fd      = it->first;
-        time_t elapsed = now - it->second;
-        ++it;
-        if (elapsed >= CLIENT_TIMEOUT)
+        int fd = fds[i].fd;
+        if (is_listen_fd(fd))
+            continue;
+        if (cgi_processes.count(fd))
+            continue;
+        if (now - client_last_active[fd] >= CLIENT_TIMEOUT)
         {
+            std::cout << "Client timeout (fd=" << fd << ")" << std::endl;
             std::string msg =
                 "HTTP/1.1 408 Request Timeout\r\n"
                 "Content-Length: 0\r\n"
                 "Connection: close\r\n\r\n";
             send(fd, msg.c_str(), msg.size(), 0);
-            disconnect_client(fd);
+            disconnect_client(fds, i);
         }
     }
 }
@@ -110,12 +112,6 @@ int Server::init(const std::string& configFile)
         return -1;
     }
 
-    epoll_fd = epoll_create1(0);
-    if (epoll_fd < 0) {
-        std::cerr << "Error: epoll_create1() failed: " << strerror(errno) << std::endl;
-        return -1;
-    }
-
     for (size_t i = 0; i < configs.size(); i++) {
         int fd = create_socket(configs[i]);
         if (fd < 0) {
@@ -123,16 +119,6 @@ int Server::init(const std::string& configFile)
             return -1;
         }
         listen_fds.push_back(fd);
-
-        struct epoll_event ev;
-        ev.events  = EPOLLIN;
-        ev.data.fd = fd;
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
-            std::cerr << "Error: epoll_ctl() ADD listen_fd failed: "
-                      << strerror(errno) << std::endl;
-            close_all_sockets();
-            return -1;
-        }
     }
 
     std::cout << "WebServ: " << listen_fds.size() << " sockets ready." << std::endl;
@@ -147,77 +133,128 @@ bool Server::is_listen_fd(int fd)
     return false;
 }
 
-void Server::accept_client(int listen_fd)
+void Server::accept_client(std::vector<struct pollfd>& fds, int listen_fd)
 {
-    while (true)
-    {
-        int client_fd = accept(listen_fd, NULL, NULL);
-        if (client_fd < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break;
+    int client_fd = accept(listen_fd, NULL, NULL);
+    if (client_fd < 0) {
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
             std::cerr << "Error: accept() failed: " << strerror(errno) << std::endl;
+        return;
+    }
+
+    if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0) {
+        std::cerr << "Error: fcntl() on client failed: " << strerror(errno) << std::endl;
+        close(client_fd);
+        return;
+    }
+
+    struct pollfd pfd;
+    pfd.fd      = client_fd;
+    pfd.events  = POLLIN;
+    pfd.revents = 0;
+    fds.push_back(pfd);
+
+    clients[client_fd] = Client();
+    client_last_active[client_fd] = time(NULL);
+
+    for (size_t i = 0; i < listen_fds.size(); i++) {
+        if (listen_fds[i] == listen_fd) {
+            client_config_index[client_fd] = i;
             break;
         }
+    }
 
-        if (fcntl(client_fd, F_SETFL, O_NONBLOCK) < 0) {
-            std::cerr << "Error: fcntl() on client failed: " << strerror(errno) << std::endl;
-            close(client_fd);
-            continue;
-        }
+    std::cout << "New client connected (fd=" << client_fd << ")" << std::endl;
+}
 
-        struct epoll_event ev;
-        ev.events  = EPOLLIN;
-        ev.data.fd = client_fd;
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_fd, &ev) < 0) {
-            std::cerr << "Error: epoll_ctl() ADD client failed: " << strerror(errno) << std::endl;
-            close(client_fd);
-            continue;
-        }
+void Server::handle_cgi(std::vector<struct pollfd>& fds, size_t i)
+{
+    int         pipe_fd = fds[i].fd;
+    CgiProcess& cgi     = cgi_processes[pipe_fd];
 
-        clients[client_fd] = Client();
-        client_last_active[client_fd] = time(NULL);
+    char buffer[4096];
+    int  bytes = read(pipe_fd, buffer, sizeof(buffer));
 
-        for (size_t i = 0; i < listen_fds.size(); i++) {
-            if (listen_fds[i] == listen_fd) {
-                client_config_index[client_fd] = i;
+    if (bytes > 0)
+    {
+        cgi.output.append(buffer, bytes);
+        return;
+    }
+
+    if (bytes < 0)
+    {
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            return;
+        std::cerr << "Error: read() on CGI pipe failed: " << strerror(errno) << std::endl;
+    }
+    close(pipe_fd);
+    fds.erase(fds.begin() + i);
+
+    int status;
+    waitpid(cgi.pid, &status, 0);
+
+    Response res;
+    if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
+        res = build_page_error(502, configs[cgi.config_index], cgi.location);
+    else if (WIFSIGNALED(status))
+        res = build_page_error(500, configs[cgi.config_index], cgi.location);
+    else
+        Response::parseCgiOutput(cgi.output, res);
+
+    if (cgi.keep_alive)
+        res.addHeader("connection", "keep-alive");
+    else
+        res.addHeader("connection", "close");
+
+    std::string final = res.toString();
+    send(cgi.client_fd, final.c_str(), final.size(), 0);
+
+    if (cgi.keep_alive)
+        clients[cgi.client_fd].reset();
+    else
+    {
+        for (size_t j = 0; j < fds.size(); j++)
+        {
+            if (fds[j].fd == cgi.client_fd)
+            {
+                disconnect_client(fds, j);
                 break;
             }
         }
-
-        std::cout << "New client connected (fd=" << client_fd << ")" << std::endl;
     }
+
+    cgi_processes.erase(pipe_fd);
 }
 
-void Server::handle_client(int fd)
+void Server::handle_client(std::vector<struct pollfd>& fds, size_t i)
 {
-    client_last_active[fd] = time(NULL);
-
+    int fd = fds[i].fd;
     char buffer[4096];
     memset(buffer, 0, sizeof(buffer));
 
     int bytes = recv(fd, buffer, sizeof(buffer) - 1, 0);
     if (bytes <= 0) {
-        disconnect_client(fd);
+        disconnect_client(fds, i);
         return;
     }
-
-    clients[fd].append_data(std::string(buffer, bytes),configs[client_config_index[fd]]);
+    client_last_active[fd] = time(NULL);
+    const ServerConfig& config = configs[client_config_index[fd]];
+    clients[fd].append_data(std::string(buffer, bytes), config);
 
     if (clients[fd].getErrorCode() != 0)
     {
         LocationConfig emptyLoc;
-        Response response = build_page_error(clients[fd].getErrorCode(),configs[client_config_index[fd]],emptyLoc);
+        Response response = build_page_error(clients[fd].getErrorCode(), configs[client_config_index[fd]], emptyLoc);
         std::string final = response.toString();
         send(fd, final.c_str(), final.size(), 0);
-        disconnect_client(fd);
+        disconnect_client(fds, i);
         return;
     }
 
     if (!clients[fd].is_complete())
         return;
 
-    const HttpRequest&  req    = clients[fd].getRequest();
-    const ServerConfig& config = configs[client_config_index[fd]];
+    const HttpRequest& req = clients[fd].getRequest();
 
     const LocationConfig* location = NULL;
     size_t match = 0;
@@ -229,7 +266,6 @@ void Server::handle_client(int fd)
             location = &config.locations[j];
             break;
         }
-
         if (req.path.find(loc_path) == 0) {
             bool valid = (loc_path == "/" || req.path[loc_path.size()] == '/');
             if (valid && loc_path.size() > match) {
@@ -238,64 +274,141 @@ void Server::handle_client(int fd)
             }
         }
     }
-
     if (!location) {
         LocationConfig emptyLoc;
-        Response response = build_page_error(404,config,emptyLoc);
+        Response response = build_page_error(404, config, emptyLoc);
         std::string final = response.toString();
         send(fd, final.c_str(), final.size(), 0);
-        disconnect_client(fd);
+        disconnect_client(fds, i);
         return;
     }
 
-    Response    response = build_response(req, config, *location);
-    std::string final    = response.toString();
+    std::map<std::string, std::string>::const_iterator it =
+        req.headers.find("connection");
+
+    bool keep_alive = (it != req.headers.end() &&
+                       it->second.find("keep-alive") != std::string::npos);
+
+    std::string full_path = location->root + req.path;
+    if (isCgi(full_path))
+    {
+        int pipe_in[2], pipe_out[2];
+        if (pipe(pipe_in) == -1 || pipe(pipe_out) == -1) {
+            send(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n", 56, 0);
+            disconnect_client(fds, i);
+            return;
+        }
+        char **env = prepareEnv(req, full_path);
+        pid_t pid  = fork();
+
+        if (pid < 0)
+        {
+            std::cerr << "Error: fork() failed: " << strerror(errno) << std::endl;
+            close(pipe_in[0]);  close(pipe_in[1]);
+            close(pipe_out[0]); close(pipe_out[1]);
+            freeEnv(env);
+            send(fd, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\n\r\n", 56, 0);
+            disconnect_client(fds, i);
+            return;
+        }
+
+        if (pid == 0)
+        {
+            dup2(pipe_in[0],  STDIN_FILENO);
+            dup2(pipe_out[1], STDOUT_FILENO);
+            close(pipe_in[0]);  close(pipe_in[1]);
+            close(pipe_out[0]); close(pipe_out[1]);
+
+            char *args[] = {
+                (char *)location->cgi_path.c_str(),
+                (char *)full_path.c_str(),
+                NULL
+            };
+            execve(args[0], args, env);
+            exit(1);
+        }
+        close(pipe_in[0]);
+        if (req.method == "POST")
+            write(pipe_in[1], req.body.c_str(), req.body.size());
+        close(pipe_in[1]);
+        close(pipe_out[1]);
+
+        fcntl(pipe_out[0], F_SETFL, O_NONBLOCK);
+        freeEnv(env);
+
+        CgiProcess cgi;
+        cgi.pipe_fd      = pipe_out[0];
+        cgi.client_fd    = fd;
+        cgi.pid          = pid;
+        cgi.keep_alive   = keep_alive;
+        cgi.config_index = client_config_index[fd];
+        cgi.location     = *location;
+
+        cgi_processes[pipe_out[0]] = cgi;
+
+        struct pollfd pfd;
+        pfd.fd      = pipe_out[0];
+        pfd.events  = POLLIN;
+        pfd.revents = 0;
+        fds.push_back(pfd);
+
+        std::cout << "CGI started (pipe_fd=" << pipe_out[0]
+                  << " client_fd=" << fd << ")" << std::endl;
+        return;
+    }
+
+    Response response = build_response(req, config, *location);
+
+    if (keep_alive)
+        response.addHeader("connection", "keep-alive");
+    else
+        response.addHeader("connection", "close");
+
+    std::string final = response.toString();
     send(fd, final.c_str(), final.size(), 0);
-
-    std::cout << "Method : " << req.method     << std::endl;
-    std::cout << "Path   : " << req.path       << std::endl;
-    std::cout << "Host   : " << config.host    << std::endl;
-    std::cout << "Port   : " << config.port    << std::endl;
-    std::cout << "Root   : " << location->root << std::endl;
-
-    disconnect_client(fd);
+    if (keep_alive)
+        clients[fd].reset();
+    else
+        disconnect_client(fds, i);
 }
 
 void Server::run()
 {
-    std::cout << "Server running ..." << std::endl;
+    std::vector<struct pollfd> fds;
 
-    const int          MAX_EVENTS = 64;
-    struct epoll_event events[MAX_EVENTS];
+    for (size_t i = 0; i < listen_fds.size(); i++) {
+        struct pollfd pfd;
+        pfd.fd      = listen_fds[i];
+        pfd.events  = POLLIN;
+        pfd.revents = 0;
+        fds.push_back(pfd);
+    }
+
+    std::cout << "Server running ..." << std::endl;
 
     while (true)
     {
-        int n = epoll_wait(epoll_fd, events, MAX_EVENTS, 5000);
+        int n = poll(fds.data(), fds.size(), 5000);
         if (n < 0) {
             if (errno == EINTR)
                 continue;
-            std::cerr << "Error: epoll_wait() failed: " << strerror(errno) << std::endl;
+            std::cerr << "Error: poll() failed: " << strerror(errno) << std::endl;
             break;
         }
 
-        check_timeouts();
+        check_timeouts(fds);
 
-        for (int i = 0; i < n; i++)
+        for (size_t i = fds.size(); i-- > 0;)
         {
-            int fd = events[i].data.fd;
-
-            if (events[i].events & (EPOLLERR | EPOLLHUP)) {
-                disconnect_client(fd);
-                continue;
-            }
-
-            if (!(events[i].events & EPOLLIN))
+            if (!(fds[i].revents & POLLIN))
                 continue;
 
-            if (is_listen_fd(fd))
-                accept_client(fd);
+            if (is_listen_fd(fds[i].fd))
+                accept_client(fds, fds[i].fd);
+            else if (cgi_processes.count(fds[i].fd))
+                handle_cgi(fds, i);
             else
-                handle_client(fd);
+                handle_client(fds, i);
         }
     }
 }
