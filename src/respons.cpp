@@ -103,20 +103,31 @@ Response build_response(const HttpRequest& req,
 {
     Response res;
     std::string path;
-   if (!location.redirect_url.empty())
+    if (config.redirect_code != 0 || location.redirect_code != 0)
     {
-        int code = location.redirect_code;
+        int code;
+        std::string url;
 
-        if (code < 300 || code >= 400)
-            code = 301; 
+        if (location.redirect_code != 0)
+        {
+            code = location.redirect_code;
+            url = location.redirect_url;
+        }
+        else
+        {
+            code = config.redirect_code;
+            url = config.redirect_url;
+        }
+
         res.setStatusCode(code);
-        res.addHeader("Location", location.redirect_url);
+        res.addHeader("Location", url);
+
         std::stringstream ss;
         ss << code;
         std::string codeStr = ss.str();
         res.setBody("<html><body><h1>" + codeStr + " Redirect</h1>" +
-                    "<p>The document has moved <a href=\"" + location.redirect_url + "\">here</a>.</p>" +
-                    "</body></html>");
+            "<p>The document has moved <a href=\"" + url + "\">here</a>.</p>" +
+            "</body></html>");
         res.addHeader("Content-Type", "text/html");
         return res;
     }
