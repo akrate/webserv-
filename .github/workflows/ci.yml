@@ -1,0 +1,77 @@
+name: Webserv CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke-test:
+    name: Build and smoke test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Clang
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang
+
+      - name: Clean previous build
+        run: make fclean
+
+      - name: Build Webserv
+        run: make CXX=clang++ -j$(nproc)
+
+      - name: Verify executable
+        run: test -x ./webserv
+
+      - name: Smoke test with project config
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ./webserv config/def.conf > webserv.log 2>&1 &
+          SERVER_PID=$!
+
+          cleanup() {
+            kill "$SERVER_PID" 2>/dev/null || true
+            wait "$SERVER_PID" 2>/dev/null || true
+          }
+
+          trap cleanup EXIT
+
+          for i in {1..20}; do
+            if grep -q "WebServ started successfully" webserv.log; then
+              cat webserv.log
+              exit 0
+            fi
+
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              cat webserv.log
+              echo "Webserv exited before successful startup." >&2
+              exit 1
+            fi
+
+            sleep 0.25
+          done
+
+          cat webserv.log
+          echo "Webserv did not start successfully." >&2
+          exit 1
+
+      - name: Check fclean
+        run: |
+          make fclean
+          test ! -e ./webserv
+          test ! -d ./obj
